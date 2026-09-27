@@ -11,12 +11,10 @@ export interface Rect {
 }
 export type Bounds = Rect;
 
-
 export interface TileOptions {
   nmaster: number; // number of widgets assigned to the master column
   mfact: number; // what fraction of width is assigned to the master column
 }
-
 
 export function tile(
   widgets: readonly Widget[],
@@ -36,13 +34,12 @@ export function tile(
     if (nmaster > 0) {
       // reserve mfact of the available bounded width for the master column
       // making the master column partition.
-      masterWidth = Math.floor(bounds.w * mfact)
+      masterWidth = Math.floor(bounds.w * mfact);
     } else {
       // no widgets assigned to the master column, all widgets belong to the stack column.
       masterWidth = 0;
     }
-  }
-  else {
+  } else {
     // no stack column needed, all come under the allowed master column space
     // for the widget count
     // master column can take the whole bounded width space
@@ -65,30 +62,30 @@ export function tile(
       // precisely:
       // Divide the remaining master-column height
       // by the number of master slots still to fill.
-      const h = Math.floor((bounds.h - masterY) / (masterCount - index))
+      const h = Math.floor((bounds.h - masterY) / (masterCount - index));
       const rect = {
         x: bounds.x,
         y: bounds.y + masterY,
         w: masterWidth,
-        h
-      }
+        h,
+      };
       masterY += h;
-      return rect
+      return rect;
     }
 
     // fill up widgets in stack column
     // Note: `index` already incremented, pending from remaining count
-    const h = Math.floor((bounds.h - stackY) / (count - index))
+    const h = Math.floor((bounds.h - stackY) / (count - index));
 
     const rect = {
       x: bounds.x + masterWidth,
       y: bounds.y + stackY,
       w: bounds.w - masterWidth,
       h,
-    }
+    };
 
     stackY += h;
-    return rect
-  })
+    return rect;
+  });
   return rects;
 }
