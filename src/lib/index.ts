@@ -141,3 +141,47 @@ export function arrange(
     rect: rects[index],
   }));
 }
+
+export type WidgetId = Widget["id"];
+
+export interface WidgetOrder {
+  tileOrder: readonly WidgetId[];
+  focusOrder: readonly WidgetId[];
+}
+
+export function attach(order: readonly WidgetId[], widgetId: WidgetId): WidgetId[] {
+  if (order.includes(widgetId)) {
+    throw new Error(`Widget "${widgetId}" is already attached`);
+  }
+
+  return [widgetId, ...order];
+}
+
+export function detach(order: readonly WidgetId[], widgetId: WidgetId): WidgetId[] {
+  if (!order.includes(widgetId)) {
+    throw new Error(`Widget "${widgetId}" is not attached`);
+  }
+
+  return order.filter((id) => id !== widgetId);
+}
+
+export function attachWidget(order: WidgetOrder, widgetId: WidgetId): WidgetOrder {
+  return {
+    tileOrder: attach(order.tileOrder, widgetId),
+    focusOrder: attach(order.focusOrder, widgetId),
+  };
+}
+
+export function detachWidget(order: WidgetOrder, widgetId: WidgetId): WidgetOrder {
+  return {
+    tileOrder: detach(order.tileOrder, widgetId),
+    focusOrder: detach(order.focusOrder, widgetId),
+  };
+}
+
+export function focusWidget(order: WidgetOrder, widgetId: WidgetId): WidgetOrder {
+  return {
+    tileOrder: order.tileOrder,
+    focusOrder: attach(detach(order.focusOrder, widgetId), widgetId),
+  };
+}

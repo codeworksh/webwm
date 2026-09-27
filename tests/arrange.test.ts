@@ -1,10 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  arrange,
-  type Bounds,
-  type LayoutTable,
-  type Widget,
-} from "../src/index.ts";
+import { arrange, type Bounds, type LayoutTable, type Widget } from "../src/index.ts";
 
 const bounds: Bounds = {
   x: 0,
@@ -130,8 +125,6 @@ describe("arrange", () => {
         },
         brokenLayouts,
       ),
-    ).toThrow(
-      'Layout "broken" returned 0 rectangles for 1 widgets',
-    );
+    ).toThrow('Layout "broken" returned 0 rectangles for 1 widgets');
   });
 });
