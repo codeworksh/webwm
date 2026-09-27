@@ -112,13 +112,36 @@ export interface ArrangeOptions extends TileOptions {
   layout: string;
 }
 
+export type WidgetId = Widget["id"];
+
+export interface WidgetOrder {
+  tileOrder: readonly WidgetId[];
+  focusOrder: readonly WidgetId[];
+}
+
+function resolveTileOrder(widgets: readonly Widget[], tileOrder: readonly WidgetId[]): Widget[] {
+  const widgetsById = new Map(widgets.map((widget) => [widget.id, widget]));
+
+  return tileOrder.map((widgetId) => {
+    const widget = widgetsById.get(widgetId);
+
+    if (!widget) {
+      throw new Error(`Unknown widget in tile order: ${widgetId}`);
+    }
+
+    return widget;
+  });
+}
+
 export function arrange(
   widgets: readonly Widget[],
+  order: WidgetOrder,
   bounds: Bounds,
   { activeTags, layout, nmaster, mfact }: ArrangeOptions,
   layoutTable: LayoutTable = layouts,
 ): Placement[] {
-  const visibleWidgets = widgets.filter((widget) => isVisible(widget, activeTags));
+  const orderedWidgets = resolveTileOrder(widgets, order.tileOrder);
+  const visibleWidgets = orderedWidgets.filter((widget) => isVisible(widget, activeTags));
   const layoutFn = layoutTable[layout];
 
   if (!layoutFn) {
@@ -140,13 +163,6 @@ export function arrange(
     widget,
     rect: rects[index],
   }));
-}
-
-export type WidgetId = Widget["id"];
-
-export interface WidgetOrder {
-  tileOrder: readonly WidgetId[];
-  focusOrder: readonly WidgetId[];
 }
 
 export function attach(order: readonly WidgetId[], widgetId: WidgetId): WidgetId[] {

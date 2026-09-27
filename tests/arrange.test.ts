@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
-import { arrange, type Bounds, type LayoutTable, type Widget } from "../src/index.ts";
+import {
+  arrange,
+  type Bounds,
+  type LayoutTable,
+  type Widget,
+  type WidgetOrder,
+} from "../src/index.ts";
 
 const bounds: Bounds = {
   x: 0,
@@ -23,9 +29,14 @@ const widgets: Widget[] = [
   },
 ];
 
+const order: WidgetOrder = {
+  tileOrder: ["editor", "music", "calendar"],
+  focusOrder: ["calendar", "music", "editor"],
+};
+
 describe("arrange", () => {
   test("arranges only widgets visible on the active tags", () => {
-    const placements = arrange(widgets, bounds, {
+    const placements = arrange(widgets, order, bounds, {
       activeTags: 0b001,
       layout: "tile",
       nmaster: 1,
@@ -54,8 +65,33 @@ describe("arrange", () => {
     ]);
   });
 
+  test("uses tileOrder rather than widget storage order", () => {
+    const reordered: WidgetOrder = {
+      tileOrder: ["calendar", "editor", "music"],
+      focusOrder: order.focusOrder,
+    };
+
+    const placements = arrange(widgets, reordered, bounds, {
+      activeTags: 0b001,
+      layout: "tile",
+      nmaster: 1,
+      mfact: 0.6,
+    });
+
+    expect(placements).toEqual([
+      {
+        widget: widgets[2],
+        rect: { x: 0, y: 0, w: 60, h: 100 },
+      },
+      {
+        widget: widgets[0],
+        rect: { x: 60, y: 0, w: 40, h: 100 },
+      },
+    ]);
+  });
+
   test("returns no placements when no widgets are visible", () => {
-    const placements = arrange(widgets, bounds, {
+    const placements = arrange(widgets, order, bounds, {
       activeTags: 0b100,
       layout: "tile",
       nmaster: 1,
@@ -67,7 +103,7 @@ describe("arrange", () => {
 
   test("throws when the selected layout does not exist", () => {
     expect(() =>
-      arrange(widgets, bounds, {
+      arrange(widgets, order, bounds, {
         activeTags: 0b001,
         layout: "missing",
         nmaster: 1,
@@ -90,6 +126,10 @@ describe("arrange", () => {
 
     const placements = arrange(
       [widgets[0]],
+      {
+        tileOrder: ["editor"],
+        focusOrder: ["editor"],
+      },
       bounds,
       {
         activeTags: 0b001,
@@ -116,6 +156,10 @@ describe("arrange", () => {
     expect(() =>
       arrange(
         [widgets[0]],
+        {
+          tileOrder: ["editor"],
+          focusOrder: ["editor"],
+        },
         bounds,
         {
           activeTags: 0b001,
