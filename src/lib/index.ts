@@ -90,11 +90,7 @@ export function tile(
   return rects;
 }
 
-export type LayoutFn = (
-  widgets: readonly Widget[],
-  bounds: Bounds,
-  options: TileOptions,
-) => Rect[];
+export type LayoutFn = (widgets: readonly Widget[], bounds: Bounds, options: TileOptions) => Rect[];
 
 export type LayoutTable = Readonly<Record<string, LayoutFn>>;
 
@@ -102,10 +98,46 @@ export const layouts = {
   tile,
 } satisfies LayoutTable;
 
-
-export function isVisible(
-  widget: Widget,
-  activeTags: number,
-): boolean {
+export function isVisible(widget: Widget, activeTags: number): boolean {
   return (widget.tags & activeTags) !== 0;
+}
+
+export interface Placement {
+  widget: Widget;
+  rect: Rect;
+}
+
+export interface ArrangeOptions extends TileOptions {
+  activeTags: number;
+  layout: string;
+}
+
+export function arrange(
+  widgets: readonly Widget[],
+  bounds: Bounds,
+  { activeTags, layout, nmaster, mfact }: ArrangeOptions,
+  layoutTable: LayoutTable = layouts,
+): Placement[] {
+  const visibleWidgets = widgets.filter((widget) => isVisible(widget, activeTags));
+  const layoutFn = layoutTable[layout];
+
+  if (!layoutFn) {
+    throw new Error(`Unknown layout: ${layout}`);
+  }
+
+  const rects = layoutFn(visibleWidgets, bounds, {
+    nmaster,
+    mfact,
+  });
+
+  if (rects.length !== visibleWidgets.length) {
+    throw new Error(
+      `Layout "${layout}" returned ${rects.length} rectangles for ${visibleWidgets.length} widgets`,
+    );
+  }
+
+  return visibleWidgets.map((widget, index) => ({
+    widget,
+    rect: rects[index],
+  }));
 }
