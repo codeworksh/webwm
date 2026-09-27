@@ -89,3 +89,23 @@ export function tile(
   });
   return rects;
 }
+
+export type LayoutFn = (
+  widgets: readonly Widget[],
+  bounds: Bounds,
+  options: TileOptions,
+) => Rect[];
+
+export type LayoutTable = Readonly<Record<string, LayoutFn>>;
+
+export const layouts = {
+  tile,
+} satisfies LayoutTable;
+
+
+export function isVisible(
+  widget: Widget,
+  activeTags: number,
+): boolean {
+  return (widget.tags & activeTags) !== 0;
+}
