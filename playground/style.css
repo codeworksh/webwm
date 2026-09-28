@@ -153,6 +153,21 @@ h1 {
   display: none;
 }
 
+.drop-indicator {
+  position: absolute;
+  z-index: 3;
+  height: 4px;
+  pointer-events: none;
+  background: #65d4c5;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgb(101 212 197 / 18%);
+  transform: translateY(-2px);
+}
+
+.drop-indicator[hidden] {
+  display: none;
+}
+
 .master-divider::after {
   position: absolute;
   top: 12px;

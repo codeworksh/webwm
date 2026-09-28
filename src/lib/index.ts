@@ -254,7 +254,7 @@ export function arrange(
 export interface MinimumAwareArrangement {
   readonly placements: Placement[];
   readonly contentBounds: Bounds;
-  readonly mode: "preferred" | "stack";
+  readonly mode: "preferred" | "preferred-scroll" | "stack";
 }
 
 /**
@@ -277,6 +277,36 @@ export function arrangeWithMinimums(
       contentBounds: bounds,
       mode: "preferred",
     };
+  }
+
+  // A short viewport does not require abandoning master-stack. If every
+  // column is wide enough, grow only the scrollable layout height until equal
+  // tile slots satisfy the largest minimum height in each column.
+  const widthsFit = preferred.every(
+    ({ widget, rect }) => rect.w >= minimumSize(widget, "minWidth"),
+  );
+
+  if (options.layout === "tile" && widthsFit && preferred.length > 0) {
+    const masterCount = Math.min(Math.max(0, options.nmaster), preferred.length);
+    const master = preferred.slice(0, masterCount);
+    const stack = preferred.slice(masterCount);
+    const requiredColumnHeight = (column: readonly Placement[]): number =>
+      column.length === 0
+        ? 0
+        : column.length * Math.max(...column.map(({ widget }) => minimumSize(widget, "minHeight")));
+    const contentBounds: Bounds = {
+      ...bounds,
+      h: Math.max(bounds.h, requiredColumnHeight(master), requiredColumnHeight(stack)),
+    };
+    const placements = arrange(widgets, order, contentBounds, options, layoutTable);
+
+    if (placementsSatisfyMinimumSizes(placements)) {
+      return {
+        placements,
+        contentBounds,
+        mode: "preferred-scroll",
+      };
+    }
   }
 
   const largestMinWidth = Math.max(
@@ -369,6 +399,90 @@ export function moveWidget(order: WidgetOrder, widgetId: WidgetId, toIndex: numb
   return {
     tileOrder,
     focusOrder: order.focusOrder,
+  };
+}
+
+export type InsertionEdge = "before" | "after";
+
+export function moveWidgetRelative(
+  order: WidgetOrder,
+  widgetId: WidgetId,
+  targetWidgetId: WidgetId,
+  edge: InsertionEdge,
+): WidgetOrder {
+  if (widgetId === targetWidgetId) return order;
+
+  const fromIndex = order.tileOrder.indexOf(widgetId);
+  if (fromIndex === -1) {
+    throw new Error(`Widget "${widgetId}" is not in tile order`);
+  }
+  if (!order.tileOrder.includes(targetWidgetId)) {
+    throw new Error(`Target widget "${targetWidgetId}" is not in tile order`);
+  }
+
+  const tileOrder = order.tileOrder.filter((id) => id !== widgetId);
+  const targetIndex = tileOrder.indexOf(targetWidgetId);
+  tileOrder.splice(targetIndex + (edge === "after" ? 1 : 0), 0, widgetId);
+
+  if (tileOrder.every((id, index) => id === order.tileOrder[index])) return order;
+
+  return {
+    tileOrder,
+    focusOrder: order.focusOrder,
+  };
+}
+
+export interface TileInsertionTarget {
+  readonly widgetId: WidgetId;
+  readonly edge: InsertionEdge;
+  readonly indicator: Rect;
+}
+
+/**
+ * Finds a before/after boundary in the tile column under the pointer.
+ *
+ * This is edge insertion, not floating-window magnetism: x selects the tile
+ * column, while crossing a widget's vertical midpoint switches its proposed
+ * edge from "before" to "after". No rectangle moves until the caller commits.
+ */
+export function tileInsertionTargetAtPoint(
+  placements: readonly Placement[],
+  x: number,
+  y: number,
+  nmaster: number,
+): TileInsertionTarget | null {
+  if (placements.length === 0) return null;
+
+  const masterCount = Math.min(Math.max(0, nmaster), placements.length);
+  const master = placements.slice(0, masterCount);
+  const stack = placements.slice(masterCount);
+  let column: readonly Placement[];
+
+  if (master.length === 0) {
+    column = stack;
+  } else if (stack.length === 0) {
+    column = master;
+  } else {
+    column = x < stack[0].rect.x ? master : stack;
+  }
+
+  // The first midpoint below the pointer owns the "before" edge. Beyond all
+  // midpoints, the pointer targets the final widget's "after" edge.
+  const target = column.find(({ rect }) => y < rect.y + rect.h / 2) ?? column.at(-1);
+  if (!target) return null;
+
+  const edge: InsertionEdge = y < target.rect.y + target.rect.h / 2 ? "before" : "after";
+  const indicatorY = edge === "before" ? target.rect.y : target.rect.y + target.rect.h;
+
+  return {
+    widgetId: target.widget.id,
+    edge,
+    indicator: {
+      x: target.rect.x,
+      y: indicatorY,
+      w: target.rect.w,
+      h: 0,
+    },
   };
 }
 

@@ -101,6 +101,31 @@ describe("arrangeWithMinimums", () => {
     expect(placementsSatisfyMinimumSizes(result.placements)).toBe(true);
   });
 
+  test("keeps master-stack and grows scroll height when only height is short", () => {
+    const heightConstrainedWidgets: Widget[] = [
+      { id: "master-1", tags: 1, minWidth: 300, minHeight: 200 },
+      { id: "master-2", tags: 1, minWidth: 300, minHeight: 180 },
+      { id: "stack-1", tags: 1, minWidth: 250, minHeight: 180 },
+      { id: "stack-2", tags: 1, minWidth: 250, minHeight: 160 },
+      { id: "stack-3", tags: 1, minWidth: 250, minHeight: 140 },
+    ];
+    const heightConstrainedOrder: WidgetOrder = {
+      tileOrder: heightConstrainedWidgets.map(({ id }) => id),
+      focusOrder: heightConstrainedWidgets.map(({ id }) => id),
+    };
+    const result = arrangeWithMinimums(
+      heightConstrainedWidgets,
+      heightConstrainedOrder,
+      { x: 0, y: 0, w: 1000, h: 420 },
+      { activeTags: 1, layout: "tile", nmaster: 2, mfact: 0.6 },
+    );
+
+    expect(result.mode).toBe("preferred-scroll");
+    expect(result.contentBounds.h).toBe(540);
+    expect(result.placements.map(({ rect }) => rect.x)).toEqual([0, 0, 600, 600, 600]);
+    expect(placementsSatisfyMinimumSizes(result.placements)).toBe(true);
+  });
+
   test("only accounts for widgets visible on active tags", () => {
     const result = arrangeWithMinimums(
       widgets,

@@ -7,14 +7,14 @@ import {
 import {
   allTagsMask,
   arrangeWithMinimums,
-  closestPlacementIndex,
   focus,
   hasMasterStack,
   isVisible,
   masterStackMfactRange,
   mfactFromPointer,
-  moveWidget,
+  moveWidgetRelative,
   tagBit,
+  tileInsertionTargetAtPoint,
   toggleViewedTags,
   type Placement,
   type Widget,
@@ -66,8 +66,10 @@ const activeMask = requiredElement<HTMLElement>("#active-mask");
 const layoutMode = requiredElement<HTMLElement>("#layout-mode");
 const mfactValue = requiredElement<HTMLElement>("#mfact-value");
 const masterDivider = requiredElement<HTMLElement>("#master-divider");
+const dropIndicator = requiredElement<HTMLElement>("#drop-indicator");
 const tagButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tag]"));
 const elements = new Map<WidgetId, HTMLElement>();
+let currentNmaster = 0;
 
 let resizeFrameId: number | null = null;
 
@@ -158,33 +160,56 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
 
   let draggedPlacement: Placement | undefined;
 
+  const insertionTargetAt = (clientX: number, clientY: number) => {
+    const surfaceRect = layoutSurface.getBoundingClientRect();
+    return tileInsertionTargetAtPoint(
+      currentPlacements,
+      clientX - surfaceRect.left,
+      clientY - surfaceRect.top,
+      currentNmaster,
+    );
+  };
+
+  const showInsertionTarget = (clientX: number, clientY: number) => {
+    const target = insertionTargetAt(clientX, clientY);
+
+    if (!target) {
+      dropIndicator.hidden = true;
+      return;
+    }
+
+    // Preview only: tileOrder and arranged widget rectangles remain unchanged
+    // until pointer-up commits the selected before/after edge.
+    dropIndicator.hidden = false;
+    dropIndicator.style.left = `${target.indicator.x}px`;
+    dropIndicator.style.top = `${target.indicator.y}px`;
+    dropIndicator.style.width = `${target.indicator.w}px`;
+  };
+
   bindDragHandle(handle, {
     canDrag: () => !pinnedIds.has(widgetId),
     onDragStart: () => {
       draggedPlacement = currentPlacements.find(({ widget }) => widget.id === widgetId);
       element.classList.add("is-dragging");
     },
-    onDragMove: ({ deltaX, deltaY }) => {
+    onDragMove: ({ clientX, clientY, deltaX, deltaY }) => {
       if (!draggedPlacement) return;
 
       const { rect } = draggedPlacement;
       element.style.transform = `translate(${rect.x + deltaX}px, ${rect.y + deltaY}px)`;
+      showInsertionTarget(clientX, clientY);
     },
     onDragEnd: ({ clientX, clientY }) => {
       element.classList.remove("is-dragging");
       draggedPlacement = undefined;
+      dropIndicator.hidden = true;
 
-      const surfaceRect = layoutSurface.getBoundingClientRect();
-      const targetVisibleIndex = closestPlacementIndex(
-        currentPlacements,
-        clientX - surfaceRect.left,
-        clientY - surfaceRect.top,
-      );
-      const targetId =
-        targetVisibleIndex === null ? undefined : currentPlacements[targetVisibleIndex]?.widget.id;
+      const target = insertionTargetAt(clientX, clientY);
 
-      if (targetId !== undefined) {
-        order = moveWidget(order, widgetId, order.tileOrder.indexOf(targetId));
+      if (target) {
+        // Commit one immutable list insertion. This never creates a floating
+        // position, collision response, or persistent snap-zone state.
+        order = moveWidgetRelative(order, widgetId, target.widgetId, target.edge);
       }
 
       render();
@@ -192,6 +217,7 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
     onDragCancel: () => {
       element.classList.remove("is-dragging");
       draggedPlacement = undefined;
+      dropIndicator.hidden = true;
       render();
     },
   });
@@ -250,14 +276,14 @@ function render(): void {
   });
 
   currentPlacements = result.placements;
+  currentNmaster = result.mode === "stack" ? 0 : nmaster;
 
   layoutSurface.style.width = `${result.contentBounds.w}px`;
   layoutSurface.style.height = `${result.contentBounds.h}px`;
   layoutMode.textContent = result.mode;
   mfactValue.textContent = mfact.toFixed(2);
 
-  const showDivider =
-    result.mode === "preferred" && hasMasterStack(result.placements.length, nmaster);
+  const showDivider = result.mode !== "stack" && hasMasterStack(result.placements.length, nmaster);
   masterDivider.hidden = !showDivider;
   masterDivider.style.left = `${Math.floor(result.contentBounds.w * mfact) - 6}px`;
   masterDivider.setAttribute("aria-valuenow", mfact.toFixed(2));

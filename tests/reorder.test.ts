@@ -2,6 +2,8 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   closestPlacementIndex,
   moveWidget,
+  moveWidgetRelative,
+  tileInsertionTargetAtPoint,
   type Placement,
   type WidgetOrder,
 } from "../src/index.ts";
@@ -29,6 +31,27 @@ describe("moveWidget", () => {
   });
 });
 
+describe("moveWidgetRelative", () => {
+  test("inserts before or after another widget", () => {
+    expect(moveWidgetRelative(order, "music", "editor", "before").tileOrder).toEqual([
+      "music",
+      "editor",
+      "terminal",
+    ]);
+    expect(moveWidgetRelative(order, "editor", "terminal", "after").tileOrder).toEqual([
+      "terminal",
+      "editor",
+      "music",
+    ]);
+  });
+
+  test("keeps focus order and treats self-targeting as a no-op", () => {
+    const result = moveWidgetRelative(order, "music", "editor", "before");
+    expect(result.focusOrder).toBe(order.focusOrder);
+    expect(moveWidgetRelative(order, "editor", "editor", "after")).toBe(order);
+  });
+});
+
 describe("closestPlacementIndex", () => {
   const placements: Placement[] = [
     { widget: { id: "master", tags: 1 }, rect: { x: 0, y: 0, w: 600, h: 600 } },
@@ -44,5 +67,32 @@ describe("closestPlacementIndex", () => {
 
   test("returns null for an empty layout", () => {
     expect(closestPlacementIndex([], 10, 10)).toBeNull();
+  });
+});
+
+describe("tileInsertionTargetAtPoint", () => {
+  const placements: Placement[] = [
+    { widget: { id: "master-1", tags: 1 }, rect: { x: 0, y: 0, w: 600, h: 300 } },
+    { widget: { id: "master-2", tags: 1 }, rect: { x: 0, y: 300, w: 600, h: 300 } },
+    { widget: { id: "stack-1", tags: 1 }, rect: { x: 600, y: 0, w: 400, h: 300 } },
+    { widget: { id: "stack-2", tags: 1 }, rect: { x: 600, y: 300, w: 400, h: 300 } },
+  ];
+
+  test("selects before and after edges within the pointed column", () => {
+    expect(tileInsertionTargetAtPoint(placements, 800, 80, 2)).toEqual({
+      widgetId: "stack-1",
+      edge: "before",
+      indicator: { x: 600, y: 0, w: 400, h: 0 },
+    });
+    expect(tileInsertionTargetAtPoint(placements, 200, 560, 2)).toEqual({
+      widgetId: "master-2",
+      edge: "after",
+      indicator: { x: 0, y: 600, w: 600, h: 0 },
+    });
+  });
+
+  test("handles a full-width stack and an empty layout", () => {
+    expect(tileInsertionTargetAtPoint(placements, 200, 320, 0)?.widgetId).toBe("master-2");
+    expect(tileInsertionTargetAtPoint([], 0, 0, 1)).toBeNull();
   });
 });
