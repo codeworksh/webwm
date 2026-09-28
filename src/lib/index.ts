@@ -256,3 +256,59 @@ export function focus(
     order: focusWidget(order, target.id),
   };
 }
+
+export function tagBit(index: number): number {
+  if (!Number.isInteger(index)) {
+    throw new Error(`Tag index must be an integer: ${index}`);
+  }
+
+  if (index < 0 || index > 30) {
+    throw new Error(`Tag index must be between 0 and 30: ${index}`);
+  }
+
+  // Turn on exactly one bit at the requested zero-based index.
+  return 1 << index;
+}
+
+export function allTagsMask(tagCount: number): number {
+  if (!Number.isInteger(tagCount)) {
+    throw new Error(`Tag count must be an integer: ${tagCount}`);
+  }
+
+  if (tagCount < 1 || tagCount > 31) {
+    throw new Error(`Tag count must be between 1 and 31: ${tagCount}`);
+  }
+
+  // Equivalent to `(1 << tagCount) - 1` for smaller counts.
+  // Exponentiation also supports tagCount 31 without shifting
+  // into JavaScript's signed 32-bit sign bit.
+  return 2 ** tagCount - 1;
+}
+
+// JavaScript bitwise operators use signed 32-bit integers. Keep the sign bit
+// clear so every supported tag mask remains a positive integer.
+const MAX_TAG_MASK = 0x7fffffff;
+
+export function validateTagMask(mask: number, allowedTags: number): number {
+  if (!Number.isSafeInteger(mask)) {
+    throw new Error(`Tag mask must be a safe integer: ${mask}`);
+  }
+
+  if (mask === 0) {
+    throw new Error("Tag mask must contain at least one tag: 0");
+  }
+
+  if (mask < 0 || mask > MAX_TAG_MASK) {
+    throw new Error(`Tag mask must be between 1 and ${MAX_TAG_MASK}: ${mask}`);
+  }
+
+  // `~allowedTags` marks every disallowed bit; AND isolates any disallowed
+  // bits that the caller tried to include in `mask`.
+  const invalidBits = mask & ~allowedTags;
+
+  if (invalidBits !== 0) {
+    throw new Error(`Tag mask contains tags outside the allowed mask: ${mask}`);
+  }
+
+  return mask;
+}
