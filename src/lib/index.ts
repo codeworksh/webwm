@@ -312,3 +312,36 @@ export function validateTagMask(mask: number, allowedTags: number): number {
 
   return mask;
 }
+
+export function setWidgetTags(widget: Widget, requestedTags: number, allowedTags: number): Widget {
+  const tags = validateTagMask(requestedTags, allowedTags);
+
+  if (tags === widget.tags) {
+    return widget;
+  }
+
+  return {
+    ...widget,
+    tags,
+  };
+}
+
+export function toggleWidgetTags(
+  widget: Widget,
+  requestedTags: number,
+  allowedTags: number,
+): Widget {
+  const tagsToToggle = validateTagMask(requestedTags, allowedTags);
+
+  const tags = widget.tags ^ tagsToToggle;
+
+  // a widget must retain at least one tag.
+  // if toggling would produce zero, leave it unchanged
+  // You can also throw an error - but its a bad experience
+  if (tags === 0) return widget;
+
+  return {
+    ...widget,
+    tags,
+  };
+}
