@@ -96,7 +96,7 @@ function render(): void {
     {
       activeTags,
       layout: "tile",
-      nmaster: 1,
+      nmaster: 2,
       mfact: 0.58,
     },
   );
