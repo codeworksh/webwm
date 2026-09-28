@@ -285,6 +285,55 @@ export function focusWidget(order: WidgetOrder, widgetId: WidgetId): WidgetOrder
   };
 }
 
+/** Moves one widget inside tileOrder without changing focusOrder. */
+export function moveWidget(order: WidgetOrder, widgetId: WidgetId, toIndex: number): WidgetOrder {
+  if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex >= order.tileOrder.length) {
+    throw new Error(`Tile-order index is out of range: ${toIndex}`);
+  }
+
+  const fromIndex = order.tileOrder.indexOf(widgetId);
+
+  if (fromIndex === -1) {
+    throw new Error(`Widget "${widgetId}" is not in tile order`);
+  }
+
+  if (fromIndex === toIndex) return order;
+
+  const tileOrder = [...order.tileOrder];
+  tileOrder.splice(fromIndex, 1);
+  tileOrder.splice(toIndex, 0, widgetId);
+
+  return {
+    tileOrder,
+    focusOrder: order.focusOrder,
+  };
+}
+
+/** Finds the placement whose center is nearest to a layout-space point. */
+export function closestPlacementIndex(
+  placements: readonly Placement[],
+  x: number,
+  y: number,
+): number | null {
+  if (placements.length === 0) return null;
+
+  let closestIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  placements.forEach(({ rect }, index) => {
+    const deltaX = x - (rect.x + rect.w / 2);
+    const deltaY = y - (rect.y + rect.h / 2);
+    const distance = deltaX * deltaX + deltaY * deltaY;
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+
+  return closestIndex;
+}
+
 export interface FocusResult {
   widget: Widget | null;
   order: WidgetOrder;

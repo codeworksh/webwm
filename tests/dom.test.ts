@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   applyPlacements,
+  bindDragHandle,
   observeElementSize,
   type FrameScheduler,
   type ResizeObserverFactory,
@@ -13,6 +14,69 @@ function fakeElement(): HTMLElement {
     style: {},
   } as unknown as HTMLElement;
 }
+
+function pointerEvent(
+  type: string,
+  { pointerId = 1, clientX = 0, clientY = 0 }: Partial<PointerEvent> = {},
+): PointerEvent {
+  const event = new Event(type, { cancelable: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+    button: { value: 0 },
+    isPrimary: { value: true },
+  });
+  return event as PointerEvent;
+}
+
+describe("bindDragHandle", () => {
+  test("starts only on its handle and reports pointer movement", () => {
+    const target = new EventTarget() as HTMLElement;
+    const captured: number[] = [];
+    const released: number[] = [];
+    Object.assign(target, {
+      style: {},
+      setPointerCapture: (pointerId: number) => captured.push(pointerId),
+      releasePointerCapture: (pointerId: number) => released.push(pointerId),
+    });
+    const movements: Array<{ deltaX: number; deltaY: number }> = [];
+
+    bindDragHandle(target, {
+      onDragMove: ({ deltaX, deltaY }) => movements.push({ deltaX, deltaY }),
+    });
+
+    target.dispatchEvent(pointerEvent("pointerdown", { clientX: 10, clientY: 20 }));
+    target.dispatchEvent(pointerEvent("pointermove", { clientX: 35, clientY: 16 }));
+    target.dispatchEvent(pointerEvent("pointerup", { clientX: 35, clientY: 16 }));
+
+    expect(captured).toEqual([1]);
+    expect(released).toEqual([1]);
+    expect(movements).toEqual([{ deltaX: 25, deltaY: -4 }]);
+  });
+
+  test("reads current pin state on every pointer down", () => {
+    const target = new EventTarget() as HTMLElement;
+    Object.assign(target, {
+      style: {},
+      setPointerCapture: () => {},
+      releasePointerCapture: () => {},
+    });
+    let pinned = true;
+    let starts = 0;
+
+    bindDragHandle(target, {
+      canDrag: () => !pinned,
+      onDragStart: () => starts++,
+    });
+
+    target.dispatchEvent(pointerEvent("pointerdown"));
+    pinned = false;
+    target.dispatchEvent(pointerEvent("pointerdown"));
+
+    expect(starts).toBe(1);
+  });
+});
 
 describe("applyPlacements", () => {
   test("batches placement styles into one scheduled frame", () => {

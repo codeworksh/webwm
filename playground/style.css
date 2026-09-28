@@ -149,6 +149,55 @@ h1 {
     opacity 120ms ease;
 }
 
+.widget.is-dragging {
+  /* Temporary interaction lift; this is not persistent window stacking. */
+  z-index: 1;
+  opacity: 0.82;
+  transition: none;
+}
+
+.widget-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drag-handle {
+  min-width: 0;
+  padding: 8px 0;
+  overflow: hidden;
+  cursor: grab;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.widget.is-dragging .drag-handle {
+  cursor: grabbing;
+}
+
+.widget.is-pinned .drag-handle {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.pin-button {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  color: #9eabb8;
+  background: transparent;
+  border: 1px solid #3a4653;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pin-button[aria-pressed="true"] {
+  color: #071412;
+  background: #65d4c5;
+  border-color: #65d4c5;
+}
+
 .widget::after {
   position: absolute;
   inset: 4px;

@@ -1,10 +1,18 @@
-import { applyPlacements, observeElementSize, type ObservedSize } from "../src/dom/index.ts";
+import {
+  applyPlacements,
+  bindDragHandle,
+  observeElementSize,
+  type ObservedSize,
+} from "../src/dom/index.ts";
 import {
   allTagsMask,
   arrangeWithMinimums,
+  closestPlacementIndex,
   focus,
+  moveWidget,
   tagBit,
   toggleViewedTags,
+  type Placement,
   type Widget,
   type WidgetId,
   type WidgetOrder,
@@ -30,6 +38,8 @@ let order: WidgetOrder = {
 };
 let activeTags = WORK;
 let focusedId: WidgetId | null = "editor";
+const pinnedIds = new Set<WidgetId>();
+let currentPlacements: Placement[] = [];
 let workspaceSize: ObservedSize = {
   width: 0,
   height: 0,
@@ -60,6 +70,70 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
   }
 
   elements.set(widgetId, element);
+
+  const handle = element.querySelector<HTMLElement>("[data-drag-handle]");
+  const pinButton = element.querySelector<HTMLButtonElement>("[data-pin]");
+
+  if (!handle || !pinButton) {
+    throw new Error(`Widget "${widgetId}" needs a drag handle and pin button`);
+  }
+
+  pinButton.setAttribute("aria-label", `Pin ${widgetId}`);
+  pinButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+
+    if (pinnedIds.has(widgetId)) {
+      pinnedIds.delete(widgetId);
+    } else {
+      pinnedIds.add(widgetId);
+    }
+
+    const pinned = pinnedIds.has(widgetId);
+    pinButton.setAttribute("aria-pressed", String(pinned));
+    pinButton.textContent = pinned ? "Pinned" : "Pin";
+    element.classList.toggle("is-pinned", pinned);
+  });
+
+  let draggedPlacement: Placement | undefined;
+
+  bindDragHandle(handle, {
+    canDrag: () => !pinnedIds.has(widgetId),
+    onDragStart: () => {
+      draggedPlacement = currentPlacements.find(({ widget }) => widget.id === widgetId);
+      element.classList.add("is-dragging");
+    },
+    onDragMove: ({ deltaX, deltaY }) => {
+      if (!draggedPlacement) return;
+
+      const { rect } = draggedPlacement;
+      element.style.transform = `translate(${rect.x + deltaX}px, ${rect.y + deltaY}px)`;
+    },
+    onDragEnd: ({ clientX, clientY }) => {
+      element.classList.remove("is-dragging");
+      draggedPlacement = undefined;
+
+      const surfaceRect = layoutSurface.getBoundingClientRect();
+      const targetVisibleIndex = closestPlacementIndex(
+        currentPlacements,
+        clientX - surfaceRect.left,
+        clientY - surfaceRect.top,
+      );
+      const targetId =
+        targetVisibleIndex === null ? undefined : currentPlacements[targetVisibleIndex]?.widget.id;
+
+      if (targetId !== undefined) {
+        order = moveWidget(order, widgetId, order.tileOrder.indexOf(targetId));
+      }
+
+      render();
+    },
+    onDragCancel: () => {
+      element.classList.remove("is-dragging");
+      draggedPlacement = undefined;
+      render();
+    },
+  });
+
   element.addEventListener("click", () => {
     const result = focus(widgets, order, activeTags, widgetId);
     order = result.order;
@@ -107,6 +181,8 @@ function render(): void {
       mfact: 0.58,
     },
   );
+
+  currentPlacements = result.placements;
 
   layoutSurface.style.width = `${result.contentBounds.w}px`;
   layoutSurface.style.height = `${result.contentBounds.h}px`;

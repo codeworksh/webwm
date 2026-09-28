@@ -38,32 +38,47 @@
         <div id="workspace" class="workspace">
           <div id="layout-surface" class="layout-surface">
             <article class="widget widget-editor" data-widget-id="editor">
-              <span class="widget-kind">Work</span>
+              <header class="widget-bar">
+                <span class="widget-kind drag-handle" data-drag-handle>Work · drag</span>
+                <button type="button" class="pin-button" data-pin aria-pressed="false">Pin</button>
+              </header>
               <h2>Editor</h2>
               <pre><code>const layout = tile(widgets, bounds, options);</code></pre>
             </article>
 
             <article class="widget widget-terminal" data-widget-id="terminal">
-              <span class="widget-kind">Work · Personal</span>
+              <header class="widget-bar">
+                <span class="widget-kind drag-handle" data-drag-handle>Work · Personal · drag</span>
+                <button type="button" class="pin-button" data-pin aria-pressed="false">Pin</button>
+              </header>
               <h2>Terminal</h2>
               <pre><code>$ pnpm test
 55 tests passed</code></pre>
             </article>
 
             <article class="widget widget-calendar" data-widget-id="calendar">
-              <span class="widget-kind">Personal</span>
+              <header class="widget-bar">
+                <span class="widget-kind drag-handle" data-drag-handle>Personal · drag</span>
+                <button type="button" class="pin-button" data-pin aria-pressed="false">Pin</button>
+              </header>
               <h2>Calendar</h2>
               <p>Design review · 14:30</p>
             </article>
 
             <article class="widget widget-music" data-widget-id="music">
-              <span class="widget-kind">Media</span>
+              <header class="widget-bar">
+                <span class="widget-kind drag-handle" data-drag-handle>Media · drag</span>
+                <button type="button" class="pin-button" data-pin aria-pressed="false">Pin</button>
+              </header>
               <h2>Music</h2>
               <p>Now playing: Binary Sunset</p>
             </article>
 
             <article class="widget widget-docs" data-widget-id="docs">
-              <span class="widget-kind">Work · Media</span>
+              <header class="widget-bar">
+                <span class="widget-kind drag-handle" data-drag-handle>Work · Media · drag</span>
+                <button type="button" class="pin-button" data-pin aria-pressed="false">Pin</button>
+              </header>
               <h2>Reference</h2>
               <p>dwm.c · tile() · arrange()</p>
             </article>

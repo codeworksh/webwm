@@ -25,10 +25,96 @@ export interface ElementSizeObserverOptions {
   readonly createObserver?: ResizeObserverFactory;
 }
 
+export interface DragMovement {
+  readonly startX: number;
+  readonly startY: number;
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly deltaX: number;
+  readonly deltaY: number;
+}
+
+export interface DragHandleOptions {
+  /** Read at pointer-down time, so pin state can change without rebinding. */
+  readonly canDrag?: () => boolean;
+  readonly onDragStart?: (movement: DragMovement) => void;
+  readonly onDragMove?: (movement: DragMovement) => void;
+  readonly onDragEnd?: (movement: DragMovement) => void;
+  readonly onDragCancel?: () => void;
+}
+
 const scheduleAnimationFrame: FrameScheduler = (callback) => requestAnimationFrame(callback);
 const cancelScheduledAnimationFrame: FrameCanceler = (frameId) => cancelAnimationFrame(frameId);
 const createNativeResizeObserver: ResizeObserverFactory = (callback) =>
   new ResizeObserver(callback);
+
+/**
+ * Turns one explicit element into a pointer drag handle. The surrounding
+ * widget remains untouched and can keep its normal interactive content.
+ */
+export function bindDragHandle(
+  handle: HTMLElement,
+  { canDrag = () => true, onDragStart, onDragMove, onDragEnd, onDragCancel }: DragHandleOptions,
+): () => void {
+  let activePointerId: number | null = null;
+  let startX = 0;
+  let startY = 0;
+
+  const movementFor = (event: PointerEvent): DragMovement => ({
+    startX,
+    startY,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    deltaX: event.clientX - startX,
+    deltaY: event.clientY - startY,
+  });
+
+  const onPointerDown = (event: PointerEvent): void => {
+    if (!event.isPrimary || event.button !== 0 || !canDrag()) return;
+
+    activePointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    onDragStart?.(movementFor(event));
+  };
+
+  const onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerId !== activePointerId) return;
+
+    onDragMove?.(movementFor(event));
+  };
+
+  const finish = (event: PointerEvent): void => {
+    if (event.pointerId !== activePointerId) return;
+
+    const movement = movementFor(event);
+    activePointerId = null;
+    handle.releasePointerCapture(event.pointerId);
+    onDragEnd?.(movement);
+  };
+
+  const cancel = (event: PointerEvent): void => {
+    if (event.pointerId !== activePointerId) return;
+
+    activePointerId = null;
+    onDragCancel?.();
+  };
+
+  handle.style.touchAction = "none";
+  handle.addEventListener("pointerdown", onPointerDown);
+  handle.addEventListener("pointermove", onPointerMove);
+  handle.addEventListener("pointerup", finish);
+  handle.addEventListener("pointercancel", cancel);
+
+  return () => {
+    handle.removeEventListener("pointerdown", onPointerDown);
+    handle.removeEventListener("pointermove", onPointerMove);
+    handle.removeEventListener("pointerup", finish);
+    handle.removeEventListener("pointercancel", cancel);
+  };
+}
 
 /**
  * Applies a completed layout to mapped widget elements in one animation frame.
