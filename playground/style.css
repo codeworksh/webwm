@@ -78,14 +78,20 @@ h1 {
   font-size: 20px;
 }
 
-.tag-controls {
+.tag-controls,
+.layout-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 14px;
 }
 
-.tag-controls button {
+.layout-controls {
+  margin-top: -6px;
+}
+
+.tag-controls button,
+.layout-controls button {
   min-height: 42px;
   padding: 0 18px;
   color: #a9b5c2;
@@ -95,18 +101,21 @@ h1 {
   cursor: pointer;
 }
 
-.tag-controls button:hover {
+.tag-controls button:hover,
+.layout-controls button:hover {
   color: #fff;
   border-color: #485767;
 }
 
-.tag-controls button[aria-pressed="true"] {
+.tag-controls button[aria-pressed="true"],
+.layout-controls button[aria-pressed="true"] {
   color: #071412;
   background: #65d4c5;
   border-color: #65d4c5;
 }
 
-.tag-controls button:focus-visible {
+.tag-controls button:focus-visible,
+.layout-controls button:focus-visible {
   outline: 3px solid rgb(101 212 197 / 35%);
   outline-offset: 3px;
 }
@@ -156,12 +165,10 @@ h1 {
 .drop-indicator {
   position: absolute;
   z-index: 3;
-  height: 4px;
   pointer-events: none;
   background: #65d4c5;
   border-radius: 999px;
   box-shadow: 0 0 0 3px rgb(101 212 197 / 18%);
-  transform: translateY(-2px);
 }
 
 .drop-indicator[hidden] {

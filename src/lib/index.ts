@@ -157,11 +157,55 @@ export function tile(
   return rects;
 }
 
+/**
+ * Gapless web grid extension. Vanilla dwm has no grid() in this repository.
+ * Incomplete final rows stretch their widgets across the full bounds width.
+ */
+export function grid(widgets: readonly Widget[], bounds: Bounds): Rect[] {
+  const count = widgets.length;
+  if (count === 0) return [];
+
+  const columnCount = Math.ceil(Math.sqrt(count));
+  const rowCount = Math.ceil(count / columnCount);
+  const rects: Rect[] = [];
+  let widgetIndex = 0;
+  let usedHeight = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    // Re-divide the remaining height each time so integer rounding cannot
+    // leave an unassigned strip at the bottom of the bounds.
+    const rowHeight = Math.floor((bounds.h - usedHeight) / (rowCount - rowIndex));
+    const widgetsInRow = Math.min(columnCount, count - widgetIndex);
+    let usedWidth = 0;
+
+    for (let columnIndex = 0; columnIndex < widgetsInRow; columnIndex++) {
+      // The final row uses its actual widget count as the denominator. This
+      // makes an incomplete row stretch across the full width (Option A).
+      const width = Math.floor((bounds.w - usedWidth) / (widgetsInRow - columnIndex));
+
+      rects.push({
+        x: bounds.x + usedWidth,
+        y: bounds.y + usedHeight,
+        w: width,
+        h: rowHeight,
+      });
+
+      usedWidth += width;
+      widgetIndex++;
+    }
+
+    usedHeight += rowHeight;
+  }
+
+  return rects;
+}
+
 export type LayoutFn = (widgets: readonly Widget[], bounds: Bounds, options: TileOptions) => Rect[];
 
 export type LayoutTable = Readonly<Record<string, LayoutFn>>;
 
 export const layouts = {
+  grid,
   tile,
 } satisfies LayoutTable;
 
@@ -309,6 +353,41 @@ export function arrangeWithMinimums(
     }
   }
 
+  // Grid keeps its selected layout and grows a scrollable surface in either
+  // dimension. Equal row heights require the largest widget minimum height;
+  // each row width is based on the largest minimum width in that row.
+  if (options.layout === "grid" && preferred.length > 0) {
+    const columnCount = Math.ceil(Math.sqrt(preferred.length));
+    const rowCount = Math.ceil(preferred.length / columnCount);
+    let requiredWidth = 1;
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+      const row = preferred.slice(rowIndex * columnCount, (rowIndex + 1) * columnCount);
+      requiredWidth = Math.max(
+        requiredWidth,
+        row.length * Math.max(...row.map(({ widget }) => minimumSize(widget, "minWidth"))),
+      );
+    }
+
+    const largestMinHeight = Math.max(
+      ...preferred.map(({ widget }) => minimumSize(widget, "minHeight")),
+    );
+    const contentBounds: Bounds = {
+      ...bounds,
+      w: Math.max(bounds.w, requiredWidth),
+      h: Math.max(bounds.h, rowCount * largestMinHeight),
+    };
+    const placements = arrange(widgets, order, contentBounds, options, layoutTable);
+
+    if (placementsSatisfyMinimumSizes(placements)) {
+      return {
+        placements,
+        contentBounds,
+        mode: "preferred-scroll",
+      };
+    }
+  }
+
   const largestMinWidth = Math.max(
     1,
     ...preferred.map(({ widget }) => minimumSize(widget, "minWidth")),
@@ -438,6 +517,8 @@ export interface TileInsertionTarget {
   readonly indicator: Rect;
 }
 
+export type InsertionTarget = TileInsertionTarget;
+
 /**
  * Finds a before/after boundary in the tile column under the pointer.
  *
@@ -482,6 +563,38 @@ export function tileInsertionTargetAtPoint(
       y: indicatorY,
       w: target.rect.w,
       h: 0,
+    },
+  };
+}
+
+/** Finds a left/right insertion edge in the grid row nearest the pointer. */
+export function gridInsertionTargetAtPoint(
+  placements: readonly Placement[],
+  x: number,
+  y: number,
+): InsertionTarget | null {
+  if (placements.length === 0) return null;
+
+  const nearest = placements.reduce((best, placement) => {
+    const bestDistance = Math.abs(y - (best.rect.y + best.rect.h / 2));
+    const distance = Math.abs(y - (placement.rect.y + placement.rect.h / 2));
+    return distance < bestDistance ? placement : best;
+  });
+  const row = placements.filter(({ rect }) => rect.y === nearest.rect.y);
+  const target = row.find(({ rect }) => x < rect.x + rect.w / 2) ?? row.at(-1);
+  if (!target) return null;
+
+  const edge: InsertionEdge = x < target.rect.x + target.rect.w / 2 ? "before" : "after";
+  const indicatorX = edge === "before" ? target.rect.x : target.rect.x + target.rect.w;
+
+  return {
+    widgetId: target.widget.id,
+    edge,
+    indicator: {
+      x: indicatorX,
+      y: target.rect.y,
+      w: 0,
+      h: target.rect.h,
     },
   };
 }

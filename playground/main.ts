@@ -8,6 +8,7 @@ import {
   allTagsMask,
   arrangeWithMinimums,
   focus,
+  gridInsertionTargetAtPoint,
   hasMasterStack,
   isVisible,
   masterStackMfactRange,
@@ -43,6 +44,7 @@ let order: WidgetOrder = {
 let activeTags = WORK;
 let focusedId: WidgetId | null = "editor";
 let mfact = 0.58;
+let layout: "tile" | "grid" = "tile";
 const pinnedIds = new Set<WidgetId>();
 let currentPlacements: Placement[] = [];
 let workspaceSize: ObservedSize = {
@@ -64,10 +66,12 @@ const workspace = requiredElement<HTMLElement>("#workspace");
 const layoutSurface = requiredElement<HTMLElement>("#layout-surface");
 const activeMask = requiredElement<HTMLElement>("#active-mask");
 const layoutMode = requiredElement<HTMLElement>("#layout-mode");
+const layoutName = requiredElement<HTMLElement>("#layout-name");
 const mfactValue = requiredElement<HTMLElement>("#mfact-value");
 const masterDivider = requiredElement<HTMLElement>("#master-divider");
 const dropIndicator = requiredElement<HTMLElement>("#drop-indicator");
 const tagButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tag]"));
+const layoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-layout]"));
 const elements = new Map<WidgetId, HTMLElement>();
 let currentNmaster = 0;
 
@@ -162,12 +166,12 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
 
   const insertionTargetAt = (clientX: number, clientY: number) => {
     const surfaceRect = layoutSurface.getBoundingClientRect();
-    return tileInsertionTargetAtPoint(
-      currentPlacements,
-      clientX - surfaceRect.left,
-      clientY - surfaceRect.top,
-      currentNmaster,
-    );
+    const x = clientX - surfaceRect.left;
+    const y = clientY - surfaceRect.top;
+
+    return layout === "grid"
+      ? gridInsertionTargetAtPoint(currentPlacements, x, y)
+      : tileInsertionTargetAtPoint(currentPlacements, x, y, currentNmaster);
   };
 
   const showInsertionTarget = (clientX: number, clientY: number) => {
@@ -183,7 +187,10 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
     dropIndicator.hidden = false;
     dropIndicator.style.left = `${target.indicator.x}px`;
     dropIndicator.style.top = `${target.indicator.y}px`;
-    dropIndicator.style.width = `${target.indicator.w}px`;
+    dropIndicator.style.width = `${target.indicator.w || 4}px`;
+    dropIndicator.style.height = `${target.indicator.h || 4}px`;
+    dropIndicator.style.transform =
+      target.indicator.w === 0 ? "translateX(-2px)" : "translateY(-2px)";
   };
 
   bindDragHandle(handle, {
@@ -251,6 +258,16 @@ for (const button of tagButtons) {
   });
 }
 
+for (const button of layoutButtons) {
+  button.addEventListener("click", () => {
+    const requestedLayout = button.dataset.layout;
+    if (requestedLayout !== "tile" && requestedLayout !== "grid") return;
+
+    layout = requestedLayout;
+    render();
+  });
+}
+
 function render(): void {
   const nmaster = workspaceSize.width < 640 ? 0 : 2;
   const bounds = {
@@ -264,26 +281,30 @@ function render(): void {
     .filter((widget): widget is Widget => widget !== undefined && isVisible(widget, activeTags));
   const mfactRange = masterStackMfactRange(visibleWidgets, bounds, nmaster);
 
-  if (mfactRange) {
+  if (layout === "tile" && mfactRange) {
     mfact = Math.min(mfactRange.max, Math.max(mfactRange.min, mfact));
   }
 
   const result = arrangeWithMinimums(widgets, order, bounds, {
     activeTags,
-    layout: "tile",
+    layout,
     nmaster,
     mfact,
   });
 
   currentPlacements = result.placements;
-  currentNmaster = result.mode === "stack" ? 0 : nmaster;
+  currentNmaster = layout === "tile" && result.mode !== "stack" ? nmaster : 0;
 
   layoutSurface.style.width = `${result.contentBounds.w}px`;
   layoutSurface.style.height = `${result.contentBounds.h}px`;
   layoutMode.textContent = result.mode;
+  layoutName.textContent = layout;
   mfactValue.textContent = mfact.toFixed(2);
 
-  const showDivider = result.mode !== "stack" && hasMasterStack(result.placements.length, nmaster);
+  const showDivider =
+    layout === "tile" &&
+    result.mode !== "stack" &&
+    hasMasterStack(result.placements.length, nmaster);
   masterDivider.hidden = !showDivider;
   masterDivider.style.left = `${Math.floor(result.contentBounds.w * mfact) - 6}px`;
   masterDivider.setAttribute("aria-valuenow", mfact.toFixed(2));
@@ -295,6 +316,10 @@ function render(): void {
     const tagName = button.dataset.tag;
     const tag = tagName ? tagsByName[tagName] : undefined;
     button.setAttribute("aria-pressed", String(tag !== undefined && (activeTags & tag) !== 0));
+  }
+
+  for (const button of layoutButtons) {
+    button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
   }
 
   for (const [widgetId, element] of elements) {
