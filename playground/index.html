@@ -37,6 +37,16 @@
       <section class="workspace-frame" aria-label="Tiled widget preview">
         <div id="workspace" class="workspace">
           <div id="layout-surface" class="layout-surface">
+            <div
+              id="master-divider"
+              class="master-divider"
+              role="separator"
+              tabindex="0"
+              aria-label="Resize master column"
+              aria-orientation="vertical"
+              aria-valuemin="0.05"
+              aria-valuemax="0.95"
+            ></div>
             <article class="widget widget-editor" data-widget-id="editor">
               <header class="widget-bar">
                 <span class="widget-kind drag-handle" data-drag-handle>Work · drag</span>
@@ -89,7 +99,7 @@
       <footer>
         <span><strong>Layout:</strong> master-stack</span>
         <span><strong>nmaster:</strong> 2 wide · 0 narrow</span>
-        <span><strong>mfact:</strong> 0.58</span>
+        <span><strong>mfact:</strong> <span id="mfact-value">0.58</span></span>
         <span><strong>Mode:</strong> <span id="layout-mode">preferred</span></span>
       </footer>
     </main>

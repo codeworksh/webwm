@@ -20,6 +20,35 @@ export interface TileOptions {
   mfact: number; // what fraction of width is assigned to the master column
 }
 
+export interface MfactLimits {
+  readonly min?: number;
+  readonly max?: number;
+}
+
+/** Converts a horizontal layout-space point into a bounded master ratio. */
+export function mfactFromPointer(
+  pointerX: number,
+  bounds: Bounds,
+  { min = 0.05, max = 0.95 }: MfactLimits = {},
+): number {
+  if (!Number.isFinite(pointerX)) {
+    throw new Error(`Pointer x must be finite: ${pointerX}`);
+  }
+  if (!Number.isFinite(bounds.w) || bounds.w <= 0) {
+    throw new Error(`Bounds width must be positive and finite: ${bounds.w}`);
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max > 1 || min > max) {
+    throw new Error(`Invalid mfact limits: ${min}..${max}`);
+  }
+
+  const ratio = (pointerX - bounds.x) / bounds.w;
+  return Math.min(max, Math.max(min, ratio));
+}
+
+export function hasMasterStack(widgetCount: number, nmaster: number): boolean {
+  return nmaster > 0 && widgetCount > nmaster;
+}
+
 export function tile(
   widgets: readonly Widget[],
   bounds: Bounds,

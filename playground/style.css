@@ -135,6 +135,48 @@ h1 {
   min-height: 100%;
 }
 
+.master-divider {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: block;
+  width: 12px;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.master-divider[hidden] {
+  display: none;
+}
+
+.master-divider::after {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 5px;
+  width: 2px;
+  content: "";
+  background: rgb(101 212 197 / 55%);
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.master-divider:hover::after,
+.master-divider:focus-visible::after,
+.master-divider.is-resizing::after {
+  opacity: 1;
+}
+
+.master-divider:focus-visible {
+  outline: 2px solid #65d4c5;
+  outline-offset: -2px;
+}
+
 .widget {
   min-width: 0;
   overflow: hidden;

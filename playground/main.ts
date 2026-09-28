@@ -9,6 +9,8 @@ import {
   arrangeWithMinimums,
   closestPlacementIndex,
   focus,
+  hasMasterStack,
+  mfactFromPointer,
   moveWidget,
   tagBit,
   toggleViewedTags,
@@ -25,7 +27,7 @@ const MEDIA = tagBit(2);
 const ALLOWED_TAGS = allTagsMask(3);
 
 const widgets: Widget[] = [
-  { id: "editor", tags: WORK, minWidth: 420, minHeight: 240 },
+  { id: "editor", tags: WORK, minWidth: 420, minHeight: 200 },
   { id: "terminal", tags: WORK | PERSONAL, minWidth: 280, minHeight: 160 },
   { id: "calendar", tags: PERSONAL, minWidth: 240, minHeight: 180 },
   { id: "music", tags: MEDIA, minWidth: 220, minHeight: 140 },
@@ -38,6 +40,7 @@ let order: WidgetOrder = {
 };
 let activeTags = WORK;
 let focusedId: WidgetId | null = "editor";
+let mfact = 0.58;
 const pinnedIds = new Set<WidgetId>();
 let currentPlacements: Placement[] = [];
 let workspaceSize: ObservedSize = {
@@ -59,8 +62,58 @@ const workspace = requiredElement<HTMLElement>("#workspace");
 const layoutSurface = requiredElement<HTMLElement>("#layout-surface");
 const activeMask = requiredElement<HTMLElement>("#active-mask");
 const layoutMode = requiredElement<HTMLElement>("#layout-mode");
+const mfactValue = requiredElement<HTMLElement>("#mfact-value");
+const masterDivider = requiredElement<HTMLElement>("#master-divider");
 const tagButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tag]"));
 const elements = new Map<WidgetId, HTMLElement>();
+
+let resizeFrameId: number | null = null;
+
+function mfactAtClientX(clientX: number): number {
+  const surfaceRect = layoutSurface.getBoundingClientRect();
+  return mfactFromPointer(clientX - surfaceRect.left, {
+    x: 0,
+    y: 0,
+    w: workspaceSize.width,
+    h: workspaceSize.height,
+  });
+}
+
+bindDragHandle(masterDivider, {
+  onDragStart: () => masterDivider.classList.add("is-resizing"),
+  onDragMove: ({ clientX }) => {
+    mfact = mfactAtClientX(clientX);
+
+    if (resizeFrameId !== null) return;
+
+    resizeFrameId = requestAnimationFrame(() => {
+      resizeFrameId = null;
+      render();
+    });
+  },
+  onDragEnd: ({ clientX }) => {
+    masterDivider.classList.remove("is-resizing");
+    mfact = mfactAtClientX(clientX);
+
+    if (resizeFrameId !== null) {
+      cancelAnimationFrame(resizeFrameId);
+      resizeFrameId = null;
+    }
+
+    render();
+  },
+  onDragCancel: () => {
+    masterDivider.classList.remove("is-resizing");
+  },
+});
+
+masterDivider.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+
+  event.preventDefault();
+  mfact = Math.min(0.95, Math.max(0.05, mfact + (event.key === "ArrowLeft" ? -0.05 : 0.05)));
+  render();
+});
 
 for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")) {
   const widgetId = element.dataset.widgetId;
@@ -178,7 +231,7 @@ function render(): void {
       activeTags,
       layout: "tile",
       nmaster,
-      mfact: 0.58,
+      mfact,
     },
   );
 
@@ -187,6 +240,13 @@ function render(): void {
   layoutSurface.style.width = `${result.contentBounds.w}px`;
   layoutSurface.style.height = `${result.contentBounds.h}px`;
   layoutMode.textContent = result.mode;
+  mfactValue.textContent = mfact.toFixed(2);
+
+  const showDivider =
+    result.mode === "preferred" && hasMasterStack(result.placements.length, nmaster);
+  masterDivider.hidden = !showDivider;
+  masterDivider.style.left = `${Math.floor(result.contentBounds.w * mfact) - 6}px`;
+  masterDivider.setAttribute("aria-valuenow", mfact.toFixed(2));
   applyPlacements(result.placements, elements);
 
   activeMask.textContent = activeTags.toString(2).padStart(3, "0");
