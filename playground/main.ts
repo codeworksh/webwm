@@ -17,11 +17,11 @@ const MEDIA = tagBit(2);
 const ALLOWED_TAGS = allTagsMask(3);
 
 const widgets: Widget[] = [
-  { id: "editor", tags: WORK },
-  { id: "terminal", tags: WORK | PERSONAL },
-  { id: "calendar", tags: PERSONAL },
-  { id: "music", tags: MEDIA },
-  { id: "docs", tags: WORK | MEDIA },
+  { id: "editor", tags: WORK, minWidth: 420, minHeight: 240 },
+  { id: "terminal", tags: WORK | PERSONAL, minWidth: 280, minHeight: 160 },
+  { id: "calendar", tags: PERSONAL, minWidth: 240, minHeight: 180 },
+  { id: "music", tags: MEDIA, minWidth: 220, minHeight: 140 },
+  { id: "docs", tags: WORK | MEDIA, minWidth: 280, minHeight: 180 },
 ];
 
 let order: WidgetOrder = {

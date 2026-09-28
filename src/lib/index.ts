@@ -1,6 +1,10 @@
 export interface Widget {
   readonly id: string;
   readonly tags: number;
+  /** Minimum usable layout width in CSS pixels. Defaults to 1. */
+  readonly minWidth?: number;
+  /** Minimum usable layout height in CSS pixels. Defaults to 1. */
+  readonly minHeight?: number;
 }
 
 export interface Rect {
