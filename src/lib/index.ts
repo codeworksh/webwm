@@ -1,6 +1,6 @@
 export interface Widget {
   readonly id: string;
-  tags: number;
+  readonly tags: number;
 }
 
 export interface Rect {
@@ -199,5 +199,60 @@ export function focusWidget(order: WidgetOrder, widgetId: WidgetId): WidgetOrder
   return {
     tileOrder: order.tileOrder,
     focusOrder: attach(detach(order.focusOrder, widgetId), widgetId),
+  };
+}
+
+export interface FocusResult {
+  widget: Widget | null;
+  order: WidgetOrder;
+}
+
+export function focus(
+  widgets: readonly Widget[],
+  order: WidgetOrder,
+  activeTags: number,
+  requestedWidgetId?: WidgetId,
+): FocusResult {
+  const widgetsById = new Map(widgets.map((widget) => [widget.id, widget]));
+
+  let target: Widget | undefined;
+
+  if (requestedWidgetId !== undefined) {
+    const requestedWidget = widgetsById.get(requestedWidgetId);
+
+    if (!requestedWidget) {
+      throw new Error(`Unknown widget: ${requestedWidgetId}`);
+    }
+
+    if (isVisible(requestedWidget, activeTags)) {
+      target = requestedWidget;
+    }
+  }
+
+  if (!target) {
+    for (const widgetId of order.focusOrder) {
+      const widget = widgetsById.get(widgetId);
+
+      if (!widget) {
+        throw new Error(`Unknown widget in focus order: ${widgetId}`);
+      }
+
+      if (isVisible(widget, activeTags)) {
+        target = widget;
+        break;
+      }
+    }
+  }
+
+  if (!target) {
+    return {
+      widget: null,
+      order,
+    };
+  }
+
+  return {
+    widget: target,
+    order: focusWidget(order, target.id),
   };
 }
