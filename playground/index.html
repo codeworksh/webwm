@@ -36,36 +36,38 @@
 
       <section class="workspace-frame" aria-label="Tiled widget preview">
         <div id="workspace" class="workspace">
-          <article class="widget widget-editor" data-widget-id="editor">
-            <span class="widget-kind">Work</span>
-            <h2>Editor</h2>
-            <pre><code>const layout = tile(widgets, bounds, options);</code></pre>
-          </article>
+          <div id="layout-surface" class="layout-surface">
+            <article class="widget widget-editor" data-widget-id="editor">
+              <span class="widget-kind">Work</span>
+              <h2>Editor</h2>
+              <pre><code>const layout = tile(widgets, bounds, options);</code></pre>
+            </article>
 
-          <article class="widget widget-terminal" data-widget-id="terminal">
-            <span class="widget-kind">Work · Personal</span>
-            <h2>Terminal</h2>
-            <pre><code>$ pnpm test
+            <article class="widget widget-terminal" data-widget-id="terminal">
+              <span class="widget-kind">Work · Personal</span>
+              <h2>Terminal</h2>
+              <pre><code>$ pnpm test
 55 tests passed</code></pre>
-          </article>
+            </article>
 
-          <article class="widget widget-calendar" data-widget-id="calendar">
-            <span class="widget-kind">Personal</span>
-            <h2>Calendar</h2>
-            <p>Design review · 14:30</p>
-          </article>
+            <article class="widget widget-calendar" data-widget-id="calendar">
+              <span class="widget-kind">Personal</span>
+              <h2>Calendar</h2>
+              <p>Design review · 14:30</p>
+            </article>
 
-          <article class="widget widget-music" data-widget-id="music">
-            <span class="widget-kind">Media</span>
-            <h2>Music</h2>
-            <p>Now playing: Binary Sunset</p>
-          </article>
+            <article class="widget widget-music" data-widget-id="music">
+              <span class="widget-kind">Media</span>
+              <h2>Music</h2>
+              <p>Now playing: Binary Sunset</p>
+            </article>
 
-          <article class="widget widget-docs" data-widget-id="docs">
-            <span class="widget-kind">Work · Media</span>
-            <h2>Reference</h2>
-            <p>dwm.c · tile() · arrange()</p>
-          </article>
+            <article class="widget widget-docs" data-widget-id="docs">
+              <span class="widget-kind">Work · Media</span>
+              <h2>Reference</h2>
+              <p>dwm.c · tile() · arrange()</p>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -73,6 +75,7 @@
         <span><strong>Layout:</strong> master-stack</span>
         <span><strong>nmaster:</strong> 2 wide · 0 narrow</span>
         <span><strong>mfact:</strong> 0.58</span>
+        <span><strong>Mode:</strong> <span id="layout-mode">preferred</span></span>
       </footer>
     </main>
   </body>

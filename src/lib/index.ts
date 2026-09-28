@@ -111,6 +111,25 @@ export interface Placement {
   rect: Rect;
 }
 
+export function placementsSatisfyMinimumSizes(placements: readonly Placement[]): boolean {
+  return placements.every(({ widget, rect }) => {
+    const minWidth = minimumSize(widget, "minWidth");
+    const minHeight = minimumSize(widget, "minHeight");
+
+    return rect.w >= minWidth && rect.h >= minHeight;
+  });
+}
+
+function minimumSize(widget: Widget, key: "minWidth" | "minHeight"): number {
+  const value = widget[key] ?? 1;
+
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid ${key} for widget "${widget.id}": ${value}`);
+  }
+
+  return value;
+}
+
 export interface ArrangeOptions extends TileOptions {
   activeTags: number;
   layout: string;
@@ -167,6 +186,66 @@ export function arrange(
     widget,
     rect: rects[index],
   }));
+}
+
+export interface MinimumAwareArrangement {
+  readonly placements: Placement[];
+  readonly contentBounds: Bounds;
+  readonly mode: "preferred" | "stack";
+}
+
+/**
+ * Uses the requested layout when it satisfies every visible widget's minimum
+ * size. Otherwise, recomputes a full-width vertical stack on a larger,
+ * scrollable surface so widgets never overlap.
+ */
+export function arrangeWithMinimums(
+  widgets: readonly Widget[],
+  order: WidgetOrder,
+  bounds: Bounds,
+  options: ArrangeOptions,
+  layoutTable: LayoutTable = layouts,
+): MinimumAwareArrangement {
+  const preferred = arrange(widgets, order, bounds, options, layoutTable);
+
+  if (placementsSatisfyMinimumSizes(preferred)) {
+    return {
+      placements: preferred,
+      contentBounds: bounds,
+      mode: "preferred",
+    };
+  }
+
+  const largestMinWidth = Math.max(
+    1,
+    ...preferred.map(({ widget }) => minimumSize(widget, "minWidth")),
+  );
+  const largestMinHeight = Math.max(
+    1,
+    ...preferred.map(({ widget }) => minimumSize(widget, "minHeight")),
+  );
+  const contentBounds: Bounds = {
+    ...bounds,
+    w: Math.max(bounds.w, largestMinWidth),
+    h: Math.max(bounds.h, largestMinHeight * preferred.length),
+  };
+
+  const placements = arrange(
+    widgets,
+    order,
+    contentBounds,
+    {
+      ...options,
+      nmaster: 0,
+    },
+    layoutTable,
+  );
+
+  return {
+    placements,
+    contentBounds,
+    mode: "stack",
+  };
 }
 
 export function attach(order: readonly WidgetId[], widgetId: WidgetId): WidgetId[] {

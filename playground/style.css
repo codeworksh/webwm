@@ -124,9 +124,15 @@ h1 {
   width: 100%;
   height: min(64vh, 620px);
   min-height: 420px;
-  overflow: hidden;
+  overflow: auto;
   background: #111720;
   border-radius: 10px;
+}
+
+.layout-surface {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
 }
 
 .widget {

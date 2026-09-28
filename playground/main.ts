@@ -1,7 +1,7 @@
 import { applyPlacements, observeElementSize, type ObservedSize } from "../src/dom/index.ts";
 import {
   allTagsMask,
-  arrange,
+  arrangeWithMinimums,
   focus,
   tagBit,
   toggleViewedTags,
@@ -46,7 +46,9 @@ function requiredElement<T extends Element>(selector: string): T {
 }
 
 const workspace = requiredElement<HTMLElement>("#workspace");
+const layoutSurface = requiredElement<HTMLElement>("#layout-surface");
 const activeMask = requiredElement<HTMLElement>("#active-mask");
+const layoutMode = requiredElement<HTMLElement>("#layout-mode");
 const tagButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-tag]"));
 const elements = new Map<WidgetId, HTMLElement>();
 
@@ -89,7 +91,7 @@ for (const button of tagButtons) {
 
 function render(): void {
   const nmaster = workspaceSize.width < 640 ? 0 : 2;
-  const placements = arrange(
+  const result = arrangeWithMinimums(
     widgets,
     order,
     {
@@ -106,7 +108,10 @@ function render(): void {
     },
   );
 
-  applyPlacements(placements, elements);
+  layoutSurface.style.width = `${result.contentBounds.w}px`;
+  layoutSurface.style.height = `${result.contentBounds.h}px`;
+  layoutMode.textContent = result.mode;
+  applyPlacements(result.placements, elements);
 
   activeMask.textContent = activeTags.toString(2).padStart(3, "0");
 
