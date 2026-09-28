@@ -200,12 +200,25 @@ export function grid(widgets: readonly Widget[], bounds: Bounds): Rect[] {
   return rects;
 }
 
+/**
+ * Full-surface geometry for the one widget selected by webwm's dispatcher.
+ * Unlike dwm, this function refuses overlapping multi-widget output.
+ */
+export function monocle(widgets: readonly Widget[], bounds: Bounds): Rect[] {
+  if (widgets.length > 1) {
+    throw new Error(`Monocle expects at most one selected widget: ${widgets.length}`);
+  }
+
+  return widgets.length === 0 ? [] : [{ ...bounds }];
+}
+
 export type LayoutFn = (widgets: readonly Widget[], bounds: Bounds, options: TileOptions) => Rect[];
 
 export type LayoutTable = Readonly<Record<string, LayoutFn>>;
 
 export const layouts = {
   grid,
+  monocle,
   tile,
 } satisfies LayoutTable;
 
@@ -240,6 +253,7 @@ function minimumSize(widget: Widget, key: "minWidth" | "minHeight"): number {
 export interface ArrangeOptions extends TileOptions {
   activeTags: number;
   layout: string;
+  focusedWidgetId?: WidgetId;
 }
 
 export type WidgetId = Widget["id"];
@@ -263,11 +277,29 @@ function resolveTileOrder(widgets: readonly Widget[], tileOrder: readonly Widget
   });
 }
 
+export function selectMonocleWidget(
+  visibleWidgets: readonly Widget[],
+  focusOrder: readonly WidgetId[],
+  focusedWidgetId?: WidgetId,
+): Widget[] {
+  if (focusedWidgetId !== undefined) {
+    const focused = visibleWidgets.find(({ id }) => id === focusedWidgetId);
+    if (focused) return [focused];
+  }
+
+  for (const widgetId of focusOrder) {
+    const widget = visibleWidgets.find(({ id }) => id === widgetId);
+    if (widget) return [widget];
+  }
+
+  return [];
+}
+
 export function arrange(
   widgets: readonly Widget[],
   order: WidgetOrder,
   bounds: Bounds,
-  { activeTags, layout, nmaster, mfact }: ArrangeOptions,
+  { activeTags, layout, nmaster, mfact, focusedWidgetId }: ArrangeOptions,
   layoutTable: LayoutTable = layouts,
 ): Placement[] {
   const orderedWidgets = resolveTileOrder(widgets, order.tileOrder);
@@ -278,18 +310,22 @@ export function arrange(
     throw new Error(`Unknown layout: ${layout}`);
   }
 
-  const rects = layoutFn(visibleWidgets, bounds, {
+  const layoutWidgets =
+    layout === "monocle"
+      ? selectMonocleWidget(visibleWidgets, order.focusOrder, focusedWidgetId)
+      : visibleWidgets;
+  const rects = layoutFn(layoutWidgets, bounds, {
     nmaster,
     mfact,
   });
 
-  if (rects.length !== visibleWidgets.length) {
+  if (rects.length !== layoutWidgets.length) {
     throw new Error(
-      `Layout "${layout}" returned ${rects.length} rectangles for ${visibleWidgets.length} widgets`,
+      `Layout "${layout}" returned ${rects.length} rectangles for ${layoutWidgets.length} widgets`,
     );
   }
 
-  return visibleWidgets.map((widget, index) => ({
+  return layoutWidgets.map((widget, index) => ({
     widget,
     rect: rects[index],
   }));
@@ -386,6 +422,21 @@ export function arrangeWithMinimums(
         mode: "preferred-scroll",
       };
     }
+  }
+
+  if (options.layout === "monocle" && preferred.length === 1) {
+    const [{ widget }] = preferred;
+    const contentBounds: Bounds = {
+      ...bounds,
+      w: Math.max(bounds.w, minimumSize(widget, "minWidth")),
+      h: Math.max(bounds.h, minimumSize(widget, "minHeight")),
+    };
+
+    return {
+      placements: arrange(widgets, order, contentBounds, options, layoutTable),
+      contentBounds,
+      mode: "preferred-scroll",
+    };
   }
 
   const largestMinWidth = Math.max(

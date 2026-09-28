@@ -44,7 +44,8 @@ let order: WidgetOrder = {
 let activeTags = WORK;
 let focusedId: WidgetId | null = "editor";
 let mfact = 0.58;
-let layout: "tile" | "grid" = "tile";
+let layout: "tile" | "grid" | "monocle" = "tile";
+let layoutBeforeMonocle: "tile" | "grid" = "tile";
 const pinnedIds = new Set<WidgetId>();
 let currentPlacements: Placement[] = [];
 let workspaceSize: ObservedSize = {
@@ -141,9 +142,10 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
 
   const handle = element.querySelector<HTMLElement>("[data-drag-handle]");
   const pinButton = element.querySelector<HTMLButtonElement>("[data-pin]");
+  const maxButton = element.querySelector<HTMLButtonElement>("[data-max]");
 
-  if (!handle || !pinButton) {
-    throw new Error(`Widget "${widgetId}" needs a drag handle and pin button`);
+  if (!handle || !pinButton || !maxButton) {
+    throw new Error(`Widget "${widgetId}" needs a drag handle, pin button, and max button`);
   }
 
   pinButton.setAttribute("aria-label", `Pin ${widgetId}`);
@@ -160,6 +162,25 @@ for (const element of document.querySelectorAll<HTMLElement>("[data-widget-id]")
     pinButton.setAttribute("aria-pressed", String(pinned));
     pinButton.textContent = pinned ? "Pinned" : "Pin";
     element.classList.toggle("is-pinned", pinned);
+  });
+
+  maxButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+
+    if (layout === "monocle" && currentPlacements[0]?.widget.id === widgetId) {
+      layout = layoutBeforeMonocle;
+    } else {
+      const result = focus(widgets, order, activeTags, widgetId);
+      order = result.order;
+      focusedId = result.widget?.id ?? null;
+
+      if (layout !== "monocle") {
+        layoutBeforeMonocle = layout;
+      }
+      layout = "monocle";
+    }
+
+    render();
   });
 
   let draggedPlacement: Placement | undefined;
@@ -263,6 +284,7 @@ for (const button of layoutButtons) {
     const requestedLayout = button.dataset.layout;
     if (requestedLayout !== "tile" && requestedLayout !== "grid") return;
 
+    layoutBeforeMonocle = requestedLayout;
     layout = requestedLayout;
     render();
   });
@@ -288,6 +310,7 @@ function render(): void {
   const result = arrangeWithMinimums(widgets, order, bounds, {
     activeTags,
     layout,
+    focusedWidgetId: focusedId ?? undefined,
     nmaster,
     mfact,
   });
@@ -324,6 +347,17 @@ function render(): void {
 
   for (const [widgetId, element] of elements) {
     element.classList.toggle("is-focused", widgetId === focusedId);
+
+    const maxButton = element.querySelector<HTMLButtonElement>("[data-max]");
+    if (!maxButton) continue;
+
+    const maximized = layout === "monocle" && result.placements[0]?.widget.id === widgetId;
+    maxButton.textContent = maximized ? "Restore" : "Max";
+    maxButton.setAttribute("aria-pressed", String(maximized));
+    maxButton.setAttribute(
+      "aria-label",
+      maximized ? `Restore ${widgetId}` : `Maximize ${widgetId}`,
+    );
   }
 }
 
