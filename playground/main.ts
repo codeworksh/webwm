@@ -10,6 +10,8 @@ import {
   closestPlacementIndex,
   focus,
   hasMasterStack,
+  isVisible,
+  masterStackMfactRange,
   mfactFromPointer,
   moveWidget,
   tagBit,
@@ -71,12 +73,19 @@ let resizeFrameId: number | null = null;
 
 function mfactAtClientX(clientX: number): number {
   const surfaceRect = layoutSurface.getBoundingClientRect();
-  return mfactFromPointer(clientX - surfaceRect.left, {
+  const bounds = {
     x: 0,
     y: 0,
     w: workspaceSize.width,
     h: workspaceSize.height,
-  });
+  };
+  const visibleWidgets = order.tileOrder
+    .map((widgetId) => widgets.find((widget) => widget.id === widgetId))
+    .filter((widget): widget is Widget => widget !== undefined && isVisible(widget, activeTags));
+  const nmaster = workspaceSize.width < 640 ? 0 : 2;
+  const range = masterStackMfactRange(visibleWidgets, bounds, nmaster);
+
+  return mfactFromPointer(clientX - surfaceRect.left, bounds, range ?? undefined);
 }
 
 bindDragHandle(masterDivider, {
@@ -218,22 +227,27 @@ for (const button of tagButtons) {
 
 function render(): void {
   const nmaster = workspaceSize.width < 640 ? 0 : 2;
-  const result = arrangeWithMinimums(
-    widgets,
-    order,
-    {
-      x: 0,
-      y: 0,
-      w: workspaceSize.width,
-      h: workspaceSize.height,
-    },
-    {
-      activeTags,
-      layout: "tile",
-      nmaster,
-      mfact,
-    },
-  );
+  const bounds = {
+    x: 0,
+    y: 0,
+    w: workspaceSize.width,
+    h: workspaceSize.height,
+  };
+  const visibleWidgets = order.tileOrder
+    .map((widgetId) => widgets.find((widget) => widget.id === widgetId))
+    .filter((widget): widget is Widget => widget !== undefined && isVisible(widget, activeTags));
+  const mfactRange = masterStackMfactRange(visibleWidgets, bounds, nmaster);
+
+  if (mfactRange) {
+    mfact = Math.min(mfactRange.max, Math.max(mfactRange.min, mfact));
+  }
+
+  const result = arrangeWithMinimums(widgets, order, bounds, {
+    activeTags,
+    layout: "tile",
+    nmaster,
+    mfact,
+  });
 
   currentPlacements = result.placements;
 

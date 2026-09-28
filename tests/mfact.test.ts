@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
-import { hasMasterStack, mfactFromPointer } from "../src/index.ts";
+import {
+  hasMasterStack,
+  masterStackMfactRange,
+  mfactFromPointer,
+  type Widget,
+} from "../src/index.ts";
 
 describe("mfactFromPointer", () => {
   test("converts a horizontal point into a ratio", () => {
@@ -34,5 +39,31 @@ describe("hasMasterStack", () => {
     expect(hasMasterStack(3, 2)).toBe(true);
     expect(hasMasterStack(2, 2)).toBe(false);
     expect(hasMasterStack(3, 0)).toBe(false);
+  });
+});
+
+describe("masterStackMfactRange", () => {
+  const widgets: Widget[] = [
+    { id: "editor", tags: 1, minWidth: 420 },
+    { id: "terminal", tags: 1, minWidth: 280 },
+    { id: "reference", tags: 1, minWidth: 280 },
+  ];
+
+  test("uses the largest minimum width in each column", () => {
+    expect(masterStackMfactRange(widgets, { x: 0, y: 0, w: 1000, h: 600 }, 2)).toEqual({
+      min: 0.42,
+      max: 0.72,
+    });
+  });
+
+  test("returns null when both column minimums cannot fit", () => {
+    expect(masterStackMfactRange(widgets, { x: 0, y: 0, w: 600, h: 600 }, 2)).toBeNull();
+  });
+
+  test("returns null when the layout has no stack divider", () => {
+    expect(
+      masterStackMfactRange(widgets.slice(0, 2), { x: 0, y: 0, w: 1000, h: 600 }, 2),
+    ).toBeNull();
+    expect(masterStackMfactRange(widgets, { x: 0, y: 0, w: 1000, h: 600 }, 0)).toBeNull();
   });
 });

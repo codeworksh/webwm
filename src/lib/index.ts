@@ -25,6 +25,11 @@ export interface MfactLimits {
   readonly max?: number;
 }
 
+export interface MfactRange {
+  readonly min: number;
+  readonly max: number;
+}
+
 /** Converts a horizontal layout-space point into a bounded master ratio. */
 export function mfactFromPointer(
   pointerX: number,
@@ -47,6 +52,35 @@ export function mfactFromPointer(
 
 export function hasMasterStack(widgetCount: number, nmaster: number): boolean {
   return nmaster > 0 && widgetCount > nmaster;
+}
+
+/**
+ * Finds the mfact interval in which both tile columns satisfy widget minimums.
+ * Widgets must already be visible and in tile order.
+ */
+export function masterStackMfactRange(
+  widgets: readonly Widget[],
+  bounds: Bounds,
+  nmaster: number,
+  { min = 0.05, max = 0.95 }: MfactLimits = {},
+): MfactRange | null {
+  if (!hasMasterStack(widgets.length, nmaster)) return null;
+  if (!Number.isFinite(bounds.w) || bounds.w <= 0) {
+    throw new Error(`Bounds width must be positive and finite: ${bounds.w}`);
+  }
+
+  const masterWidgets = widgets.slice(0, nmaster);
+  const stackWidgets = widgets.slice(nmaster);
+  const masterMinWidth = Math.max(
+    ...masterWidgets.map((widget) => minimumSize(widget, "minWidth")),
+  );
+  const stackMinWidth = Math.max(...stackWidgets.map((widget) => minimumSize(widget, "minWidth")));
+  const range = {
+    min: Math.max(min, masterMinWidth / bounds.w),
+    max: Math.min(max, 1 - stackMinWidth / bounds.w),
+  };
+
+  return range.min <= range.max ? range : null;
 }
 
 export function tile(
