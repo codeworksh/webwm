@@ -1,4 +1,4 @@
-import { applyPlacements } from "../src/dom/index.ts";
+import { applyPlacements, observeElementSize, type ObservedSize } from "../src/dom/index.ts";
 import {
   allTagsMask,
   arrange,
@@ -30,6 +30,10 @@ let order: WidgetOrder = {
 };
 let activeTags = WORK;
 let focusedId: WidgetId | null = "editor";
+let workspaceSize: ObservedSize = {
+  width: 0,
+  height: 0,
+};
 
 function requiredElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -84,19 +88,20 @@ for (const button of tagButtons) {
 }
 
 function render(): void {
+  const nmaster = workspaceSize.width < 640 ? 0 : 2;
   const placements = arrange(
     widgets,
     order,
     {
       x: 0,
       y: 0,
-      w: workspace.clientWidth,
-      h: workspace.clientHeight,
+      w: workspaceSize.width,
+      h: workspaceSize.height,
     },
     {
       activeTags,
       layout: "tile",
-      nmaster: 2,
+      nmaster,
       mfact: 0.58,
     },
   );
@@ -116,4 +121,7 @@ function render(): void {
   }
 }
 
-render();
+observeElementSize(workspace, (size) => {
+  workspaceSize = size;
+  render();
+});

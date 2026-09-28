@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
-import { applyPlacements, type FrameScheduler } from "../src/dom/index.ts";
+import {
+  applyPlacements,
+  observeElementSize,
+  type FrameScheduler,
+  type ResizeObserverFactory,
+} from "../src/dom/index.ts";
 import type { Placement } from "../src/index.ts";
 
 function fakeElement(): HTMLElement {
@@ -97,5 +102,93 @@ describe("applyPlacements", () => {
       ),
     ).toThrow("Missing element for widget: missing");
     expect(scheduled).toBe(false);
+  });
+});
+
+describe("observeElementSize", () => {
+  test("coalesces repeated observations and reports the latest size", () => {
+    const element = fakeElement();
+    let observerCallback: ResizeObserverCallback | undefined;
+    let observedElement: Element | undefined;
+    let scheduledCallback: FrameRequestCallback | undefined;
+    const sizes: Array<{ width: number; height: number }> = [];
+    const createObserver: ResizeObserverFactory = (callback) => {
+      observerCallback = callback;
+      return {
+        observe(target) {
+          observedElement = target;
+        },
+        disconnect() {},
+      };
+    };
+    const scheduleFrame: FrameScheduler = (callback) => {
+      scheduledCallback = callback;
+      return 7;
+    };
+
+    observeElementSize(element, (size) => sizes.push(size), { createObserver, scheduleFrame });
+
+    expect(observedElement).toBe(element);
+
+    observerCallback?.(
+      [
+        {
+          target: element,
+          contentRect: { width: 800.9, height: 600.7 },
+        } as unknown as ResizeObserverEntry,
+      ],
+      {} as ResizeObserver,
+    );
+    observerCallback?.(
+      [
+        {
+          target: element,
+          contentRect: { width: 620.4, height: 480.9 },
+        } as unknown as ResizeObserverEntry,
+      ],
+      {} as ResizeObserver,
+    );
+
+    expect(sizes).toEqual([]);
+    scheduledCallback?.(0);
+    expect(sizes).toEqual([{ width: 620, height: 480 }]);
+  });
+
+  test("disconnects and cancels a pending frame during cleanup", () => {
+    const element = fakeElement();
+    let observerCallback: ResizeObserverCallback | undefined;
+    let disconnected = false;
+    let canceledFrameId: number | undefined;
+    const createObserver: ResizeObserverFactory = (callback) => {
+      observerCallback = callback;
+      return {
+        observe() {},
+        disconnect() {
+          disconnected = true;
+        },
+      };
+    };
+
+    const cleanup = observeElementSize(element, () => {}, {
+      createObserver,
+      scheduleFrame: () => 9,
+      cancelFrame: (frameId) => {
+        canceledFrameId = frameId;
+      },
+    });
+
+    observerCallback?.(
+      [
+        {
+          target: element,
+          contentRect: { width: 500, height: 300 },
+        } as unknown as ResizeObserverEntry,
+      ],
+      {} as ResizeObserver,
+    );
+    cleanup();
+
+    expect(disconnected).toBe(true);
+    expect(canceledFrameId).toBe(9);
   });
 });
