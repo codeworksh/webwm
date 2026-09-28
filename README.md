@@ -18,6 +18,8 @@ pnpm add https://github.com/codeworksh/webwm/releases/download/v0.1.0/webwm-0.1.
 You can also download that asset first and run `pnpm add ./webwm-0.1.0.tgz`.
 Use the release asset rather than the repository source archive: it includes
 the built `webwm`, `webwm/dom`, and `webwm/react` entry points.
+If you use `webwm/react`, install React in your app as well (`pnpm add react`);
+the core and DOM entry points do not require it.
 
 ## Quick start
 
