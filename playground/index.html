@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Interactive browser playground for the webwm layout library"
+    />
+    <title>webwm playground</title>
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="intro">
+        <div>
+          <p class="eyebrow">Framework-agnostic TypeScript</p>
+          <h1>webwm playground</h1>
+          <p class="description">
+            dwm-style master-stack tiling for browser widgets. Toggle boards to see tag visibility
+            feed the pure layout engine.
+          </p>
+        </div>
+
+        <div class="status" aria-live="polite">
+          <span>Active mask</span>
+          <code id="active-mask">001</code>
+        </div>
+      </header>
+
+      <nav class="tag-controls" aria-label="Visible boards">
+        <button type="button" data-tag="work" aria-pressed="true">Work</button>
+        <button type="button" data-tag="personal" aria-pressed="false">Personal</button>
+        <button type="button" data-tag="media" aria-pressed="false">Media</button>
+      </nav>
+
+      <section class="workspace-frame" aria-label="Tiled widget preview">
+        <div id="workspace" class="workspace">
+          <article class="widget widget-editor" data-widget-id="editor">
+            <span class="widget-kind">Work</span>
+            <h2>Editor</h2>
+            <pre><code>const layout = tile(widgets, bounds, options);</code></pre>
+          </article>
+
+          <article class="widget widget-terminal" data-widget-id="terminal">
+            <span class="widget-kind">Work · Personal</span>
+            <h2>Terminal</h2>
+            <pre><code>$ pnpm test
+55 tests passed</code></pre>
+          </article>
+
+          <article class="widget widget-calendar" data-widget-id="calendar">
+            <span class="widget-kind">Personal</span>
+            <h2>Calendar</h2>
+            <p>Design review · 14:30</p>
+          </article>
+
+          <article class="widget widget-music" data-widget-id="music">
+            <span class="widget-kind">Media</span>
+            <h2>Music</h2>
+            <p>Now playing: Binary Sunset</p>
+          </article>
+
+          <article class="widget widget-docs" data-widget-id="docs">
+            <span class="widget-kind">Work · Media</span>
+            <h2>Reference</h2>
+            <p>dwm.c · tile() · arrange()</p>
+          </article>
+        </div>
+      </section>
+
+      <footer>
+        <span><strong>Layout:</strong> master-stack</span>
+        <span><strong>nmaster:</strong> 1</span>
+        <span><strong>mfact:</strong> 0.58</span>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -335,13 +335,38 @@ export function toggleWidgetTags(
 
   const tags = widget.tags ^ tagsToToggle;
 
-  // a widget must retain at least one tag.
-  // if toggling would produce zero, leave it unchanged
-  // You can also throw an error - but its a bad experience
-  if (tags === 0) return widget;
+  // Match dwm: a widget must retain at least one tag. If toggling would
+  // produce zero, leave it unchanged.
+  if (tags === 0) {
+    return widget;
+  }
 
   return {
     ...widget,
     tags,
   };
+}
+
+export function viewTags(requestedTags: number, allowedTags: number): number {
+  return validateTagMask(requestedTags, allowedTags);
+}
+
+export function toggleViewedTags(
+  activeTags: number,
+  requestedTags: number,
+  allowedTags: number,
+): number {
+  const currentTags = validateTagMask(activeTags, allowedTags);
+
+  const tagsToToggle = validateTagMask(requestedTags, allowedTags);
+
+  const nextTags = currentTags ^ tagsToToggle;
+
+  // Match dwm: at least one tag must remain visible.
+  // If toggling would produce zero, preserve the current view.
+  if (nextTags === 0) {
+    return activeTags;
+  }
+
+  return nextTags;
 }
