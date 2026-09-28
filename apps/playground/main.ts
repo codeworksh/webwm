@@ -1,9 +1,4 @@
-import {
-  applyPlacements,
-  bindDragHandle,
-  observeElementSize,
-  type ObservedSize,
-} from "../src/dom/index.ts";
+import { applyPlacements, bindDragHandle, observeElementSize, type ObservedSize } from "webwm/dom";
 import {
   allTagsMask,
   arrangeWithMinimums,
@@ -21,7 +16,7 @@ import {
   type Widget,
   type WidgetId,
   type WidgetOrder,
-} from "../src/index.ts";
+} from "webwm";
 import "./style.css";
 
 const WORK = tagBit(0);

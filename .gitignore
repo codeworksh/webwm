@@ -1,5 +1,9 @@
 node_modules
 dist
+apps/web/src/routeTree.gen.ts
+apps/*/dist
+playwright-report
+test-results
 *.log
 .DS_Store
 !.vscode/

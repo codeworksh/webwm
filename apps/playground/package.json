@@ -1,0 +1,16 @@
+{
+  "name": "webwm-dom-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build"
+  },
+  "dependencies": {
+    "webwm": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  }
+}
