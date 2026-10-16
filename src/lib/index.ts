@@ -229,14 +229,20 @@ export function isVisible(widget: Widget, activeTags: number): boolean {
 export interface Placement {
   widget: Widget;
   rect: Rect;
+  /**
+   * Shown as its title bar only: the column could not fit it at its minimum height. Its rect is
+   * `collapsedHeight` tall. Focusing it (see `focus`) opens it on the next arrangement.
+   */
+  collapsed?: boolean;
 }
 
+/** A collapsed placement only has to meet its minimum width; its height is its title bar. */
 export function placementsSatisfyMinimumSizes(placements: readonly Placement[]): boolean {
-  return placements.every(({ widget, rect }) => {
+  return placements.every(({ widget, rect, collapsed }) => {
     const minWidth = minimumSize(widget, "minWidth");
     const minHeight = minimumSize(widget, "minHeight");
 
-    return rect.w >= minWidth && rect.h >= minHeight;
+    return rect.w >= minWidth && (collapsed === true || rect.h >= minHeight);
   });
 }
 
@@ -254,6 +260,13 @@ export interface ArrangeOptions extends TileOptions {
   activeTags: number;
   layout: string;
   focusedWidgetId?: WidgetId;
+  /**
+   * Tile only: the height of a collapsed widget, usually its title bar. When set, a tile column
+   * whose widgets cannot all meet their minimum height keeps its most recently focused widgets
+   * open and collapses the rest to this height at the column's bottom, instead of growing a
+   * scrollable surface. Unset keeps the scrolling fallback.
+   */
+  collapsedHeight?: number;
 }
 
 export type WidgetId = Widget["id"];
@@ -334,7 +347,64 @@ export function arrange(
 export interface MinimumAwareArrangement {
   readonly placements: Placement[];
   readonly contentBounds: Bounds;
-  readonly mode: "preferred" | "preferred-scroll" | "stack";
+  /**
+   * - `preferred`: the requested layout as is.
+   * - `preferred-collapse`: tile within the bounds, with some widgets collapsed (see `collapsedHeight`).
+   * - `preferred-scroll`: the requested layout on a larger, scrollable surface.
+   * - `stack`: a full-width vertical stack on a scrollable surface, the last resort.
+   */
+  readonly mode: "preferred" | "preferred-collapse" | "preferred-scroll" | "stack";
+}
+
+/**
+ * Lays one tile column out within `height`, collapsing what does not fit. The most recently
+ * focused widgets stay open, as many as can share the height left by the collapsed title bars
+ * while each meets its minimum; open widgets keep their tile order at the top and collapsed ones
+ * follow at the bottom, also in tile order. Null when not even one widget can stay open.
+ */
+function collapseColumn(
+  column: readonly Placement[],
+  top: number,
+  height: number,
+  collapsedHeight: number,
+  recency: (widgetId: WidgetId) => number,
+): Placement[] | null {
+  const count = column.length;
+  if (count === 0) return [];
+  const byRecency = [...column].sort((a, b) => recency(a.widget.id) - recency(b.widget.id));
+
+  for (let openCount = count; openCount >= 1; openCount--) {
+    const open = new Set(byRecency.slice(0, openCount).map(({ widget }) => widget.id));
+    const openHeight = height - (count - openCount) * collapsedHeight;
+    const needed = Math.max(
+      ...column
+        .filter(({ widget }) => open.has(widget.id))
+        .map(({ widget }) => minimumSize(widget, "minHeight")),
+    );
+    // Slots are divided like tile: the smallest one is the floor of an equal share.
+    if (Math.floor(openHeight / openCount) < needed) continue;
+
+    let openY = 0;
+    let opened = 0;
+    let collapsedY = openHeight;
+    return column.map(({ widget, rect }) => {
+      if (open.has(widget.id)) {
+        const h = Math.floor((openHeight - openY) / (openCount - opened));
+        const placed = { widget, rect: { x: rect.x, y: top + openY, w: rect.w, h } };
+        openY += h;
+        opened++;
+        return placed;
+      }
+      const placed = {
+        widget,
+        rect: { x: rect.x, y: top + collapsedY, w: rect.w, h: collapsedHeight },
+        collapsed: true,
+      };
+      collapsedY += collapsedHeight;
+      return placed;
+    });
+  }
+  return null;
 }
 
 /**
@@ -359,17 +429,44 @@ export function arrangeWithMinimums(
     };
   }
 
-  // A short viewport does not require abandoning master-stack. If every
-  // column is wide enough, grow only the scrollable layout height until equal
-  // tile slots satisfy the largest minimum height in each column.
   const widthsFit = preferred.every(
     ({ widget, rect }) => rect.w >= minimumSize(widget, "minWidth"),
   );
+  const masterCount = Math.min(Math.max(0, options.nmaster), preferred.length);
+  const master = preferred.slice(0, masterCount);
+  const stack = preferred.slice(masterCount);
 
+  // A short viewport can keep master-stack within the bounds by collapsing what
+  // does not fit to title bars, most recently focused widgets staying open.
+  if (
+    options.layout === "tile" &&
+    options.collapsedHeight !== undefined &&
+    widthsFit &&
+    preferred.length > 0
+  ) {
+    const { collapsedHeight } = options;
+    if (!Number.isFinite(collapsedHeight) || collapsedHeight <= 0) {
+      throw new Error(`Collapsed height must be positive and finite: ${collapsedHeight}`);
+    }
+    const ranks = new Map(order.focusOrder.map((widgetId, index) => [widgetId, index]));
+    const recency = (widgetId: WidgetId) =>
+      widgetId === options.focusedWidgetId ? -1 : (ranks.get(widgetId) ?? Number.POSITIVE_INFINITY);
+    const masterColumn = collapseColumn(master, bounds.y, bounds.h, collapsedHeight, recency);
+    const stackColumn = collapseColumn(stack, bounds.y, bounds.h, collapsedHeight, recency);
+
+    if (masterColumn && stackColumn) {
+      return {
+        placements: [...masterColumn, ...stackColumn],
+        contentBounds: bounds,
+        mode: "preferred-collapse",
+      };
+    }
+  }
+
+  // A short viewport does not require abandoning master-stack. If every
+  // column is wide enough, grow only the scrollable layout height until equal
+  // tile slots satisfy the largest minimum height in each column.
   if (options.layout === "tile" && widthsFit && preferred.length > 0) {
-    const masterCount = Math.min(Math.max(0, options.nmaster), preferred.length);
-    const master = preferred.slice(0, masterCount);
-    const stack = preferred.slice(masterCount);
     const requiredColumnHeight = (column: readonly Placement[]): number =>
       column.length === 0
         ? 0
@@ -597,6 +694,10 @@ export function tileInsertionTargetAtPoint(
   } else {
     column = x < stack[0].rect.x ? master : stack;
   }
+
+  // Collapsed widgets sit below the open ones whatever their tile order, so the
+  // column is read top to bottom.
+  column = [...column].sort((a, b) => a.rect.y - b.rect.y);
 
   // The first midpoint below the pointer owns the "before" edge. Beyond all
   // midpoints, the pointer targets the final widget's "after" edge.

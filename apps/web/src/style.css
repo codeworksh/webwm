@@ -439,6 +439,13 @@ a:focus-visible,
   border: 3px solid #171b21;
   /* Geometry changes land together, so tiles never overlap mid-transition. */
 }
+.widget.is-collapsed .widget-bar {
+  border-bottom: 0;
+  cursor: pointer;
+}
+.widget.is-collapsed .widget-label {
+  color: #aebfcd;
+}
 .widget.is-focused {
   box-shadow: inset 0 0 0 1px #5aa6de;
 }

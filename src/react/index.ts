@@ -51,6 +51,7 @@ export function useArrangedWidgets(
       options.focusedWidgetId,
       options.nmaster,
       options.mfact,
+      options.collapsedHeight,
       layoutTable,
     ],
   );

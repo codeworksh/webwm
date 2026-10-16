@@ -9,9 +9,16 @@ import {
 import type { Placement } from "../src/index.ts";
 
 function fakeElement(): HTMLElement {
+  const attributes = new Set<string>();
   return {
     hidden: false,
     style: {},
+    toggleAttribute: (name: string, force: boolean) => {
+      if (force) attributes.add(name);
+      else attributes.delete(name);
+      return force;
+    },
+    hasAttribute: (name: string) => attributes.has(name),
   } as unknown as HTMLElement;
 }
 
@@ -117,6 +124,51 @@ describe("applyPlacements", () => {
     expect(editor.style.width).toBe("600px");
     expect(editor.style.height).toBe("400px");
     expect(terminal.style.transform).toBe("translate(610px, 20px)");
+  });
+
+  test("marks collapsed placements and clears the mark once they open", () => {
+    const editor = fakeElement();
+    const terminal = fakeElement();
+    const elements = new Map([
+      ["editor", editor],
+      ["terminal", terminal],
+    ]);
+    const scheduleImmediately: FrameScheduler = (callback) => {
+      callback(0);
+      return 1;
+    };
+    const editorPlacement: Placement = {
+      widget: { id: "editor", tags: 0b001 },
+      rect: { x: 0, y: 0, w: 600, h: 372 },
+    };
+
+    applyPlacements(
+      [
+        editorPlacement,
+        {
+          widget: { id: "terminal", tags: 0b001 },
+          rect: { x: 0, y: 372, w: 600, h: 28 },
+          collapsed: true,
+        },
+      ],
+      elements,
+      scheduleImmediately,
+    );
+
+    expect(editor.hasAttribute("data-collapsed")).toBe(false);
+    expect(terminal.hasAttribute("data-collapsed")).toBe(true);
+    expect(terminal.style.height).toBe("28px");
+
+    applyPlacements(
+      [
+        editorPlacement,
+        { widget: { id: "terminal", tags: 0b001 }, rect: { x: 0, y: 200, w: 600, h: 200 } },
+      ],
+      elements,
+      scheduleImmediately,
+    );
+
+    expect(terminal.hasAttribute("data-collapsed")).toBe(false);
   });
 
   test("hides mapped widgets that have no placement", () => {

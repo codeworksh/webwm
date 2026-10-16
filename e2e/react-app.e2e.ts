@@ -117,3 +117,27 @@ test("React Grid drag previews a vertical edge and reorders by row", async ({ pa
     .toEqual(["music", "editor", "terminal", "reference"]);
   await expectDisjoint(page.locator(".widget"));
 });
+
+test("React stack collapses overflow to title bars and opens one on click", async ({ page }) => {
+  // A short window: the three stack widgets cannot all meet their minimum height.
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto("http://127.0.0.1:5184/");
+  await page.getByRole("button", { name: "Personal" }).click();
+  await page.getByRole("button", { name: "Media" }).click();
+
+  await expect(page.locator(".widget")).toHaveCount(5);
+  await expect(page.getByText(/View: preferred-collapse/)).toBeVisible();
+  const collapsed = page.locator(".widget.is-collapsed");
+  await expect(collapsed).toHaveCount(1);
+  await expectDisjoint(page.locator(".widget"));
+
+  const folded = await collapsed.getAttribute("data-widget-id");
+  // The workspace does not scroll: everything fits, the title bar included.
+  const workspace = page.locator(".workspace");
+  expect(await workspace.evaluate((node) => node.scrollHeight <= node.clientHeight)).toBe(true);
+
+  await collapsed.locator(".widget-bar").click();
+  await expect(page.locator(`[data-widget-id="${folded}"]`)).not.toHaveClass(/is-collapsed/);
+  await expect(page.locator(".widget.is-collapsed")).toHaveCount(1);
+  await expectDisjoint(page.locator(".widget"));
+});

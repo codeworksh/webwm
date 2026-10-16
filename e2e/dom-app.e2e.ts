@@ -96,3 +96,20 @@ test("vanilla DOM Grid edge insertion and narrow view stay disjoint", async ({ p
   await expectDisjoint(page.locator("[data-widget-id]"));
   await expect(page.locator("#master-divider")).toBeHidden();
 });
+
+test("vanilla DOM stack collapses overflow and marks it for styling", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 640 });
+  await page.goto("http://127.0.0.1:5183/");
+  await page.getByRole("button", { name: "Personal" }).click();
+  await page.getByRole("button", { name: "Media" }).click();
+
+  await expect(page.locator("#layout-mode")).toHaveText("preferred-collapse");
+  const collapsed = page.locator("[data-widget-id][data-collapsed]");
+  await expect(collapsed).toHaveCount(1);
+  await expectDisjoint(page.locator("[data-widget-id]"));
+
+  const folded = await collapsed.getAttribute("data-widget-id");
+  await collapsed.click();
+  await expect(page.locator(`[data-widget-id="${folded}"]`)).not.toHaveAttribute("data-collapsed");
+  await expect(page.locator("[data-widget-id][data-collapsed]")).toHaveCount(1);
+});

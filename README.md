@@ -102,3 +102,45 @@ import { useArrangedWidgets, useDragHandle, useElementSize } from "webwm/react";
 `webwm/react` is an optional adapter. React components own widget content and
 state; webwm computes placement. The `apps/web` route shows one complete
 integration, including application-owned pin and Max state.
+
+## When widgets do not fit
+
+`arrangeWithMinimums` never lets a widget go below its `minWidth` or
+`minHeight`. When the requested layout cannot meet them, `result.mode` says
+what it did instead:
+
+| Mode                 | What you get                                         |
+| -------------------- | ---------------------------------------------------- |
+| `preferred`          | The requested layout as is                           |
+| `preferred-collapse` | Tile within the bounds, with some widgets collapsed  |
+| `preferred-scroll`   | The requested layout on a larger, scrollable surface |
+| `stack`              | A full-width vertical stack on a scrollable surface  |
+
+`preferred-collapse` is opt-in: pass `collapsedHeight`, the height of a
+widget shown as its title bar. When a tile column cannot fit all its widgets,
+the most recently focused ones stay open and the rest collapse to that height
+at the bottom of the column, in tile order. Nothing scrolls, and every widget
+stays one click away.
+
+```ts
+const result = arrangeWithMinimums(widgets, order, bounds, {
+  activeTags: work,
+  layout: "tile",
+  nmaster: 1,
+  mfact: 0.6,
+  collapsedHeight: 32,
+});
+
+for (const { widget, rect, collapsed } of result.placements) {
+  // Draw `rect`; when `collapsed`, show only the title bar.
+}
+```
+
+To open a collapsed widget, focus it with `focus` (or `focusWidget`). It is
+then among the most recently focused, so the next arrangement opens it and
+collapses whichever open widget was focused least recently. Keep a collapsed
+widget's content mounted and just hide it, so its state survives. `webwm/dom`
+marks collapsed elements with a `data-collapsed` attribute for styling, and
+`tileInsertionTargetAtPoint` reads the column top to bottom, so dragging onto a
+title bar works as expected. Without `collapsedHeight`, a short tile column
+scrolls as before.

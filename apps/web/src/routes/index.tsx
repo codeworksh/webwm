@@ -26,6 +26,9 @@ const personal = tagBit(1);
 const media = tagBit(2);
 const allowedTags = allTagsMask(3);
 
+// A collapsed frame is its title bar: 35px bar inside a 3px border, top and bottom.
+const COLLAPSED_HEIGHT = 41;
+
 const widgets: Widget[] = [
   { id: "editor", tags: work, minWidth: 390, minHeight: 200 },
   { id: "terminal", tags: work | personal, minWidth: 280, minHeight: 160 },
@@ -148,6 +151,7 @@ interface DragPreview {
 interface WidgetFrameProps {
   readonly widget: Widget;
   readonly rect: Rect;
+  readonly collapsed: boolean;
   readonly focused: boolean;
   readonly maximized: boolean;
   readonly pinned: boolean;
@@ -171,6 +175,7 @@ interface WidgetFrameProps {
 function WidgetFrame({
   widget,
   rect,
+  collapsed,
   focused,
   maximized,
   pinned,
@@ -202,7 +207,7 @@ function WidgetFrame({
   return (
     <article
       data-widget-id={widget.id}
-      className={`widget${focused ? " is-focused" : ""}${dragging ? " is-dragging" : ""}`}
+      className={`widget${focused ? " is-focused" : ""}${dragging ? " is-dragging" : ""}${collapsed ? " is-collapsed" : ""}`}
       style={frameStyle}
       onClick={() => onFocus(widget.id)}
     >
@@ -242,7 +247,8 @@ function WidgetFrame({
           </button>
         </span>
       </header>
-      <div className="widget-body">
+      {/* Collapsed frames keep their content mounted, so it keeps its state while folded away. */}
+      <div className="widget-body" hidden={collapsed}>
         <div className="widget-eyebrow">
           {widget.id === "editor" ? "ACTIVE FILE" : "OPEN WIDGET"}
         </div>
@@ -322,6 +328,7 @@ function WorkspacePage() {
     focusedWidgetId: focusedId ?? undefined,
     nmaster,
     mfact: effectiveMfact,
+    collapsedHeight: COLLAPSED_HEIGHT,
   });
   const showDivider =
     layout === "tile" &&
@@ -452,11 +459,12 @@ function WorkspacePage() {
           className="layout-surface"
           style={{ width: arrangement.contentBounds.w, height: arrangement.contentBounds.h }}
         >
-          {arrangement.placements.map(({ widget, rect }) => (
+          {arrangement.placements.map(({ widget, rect, collapsed }) => (
             <WidgetFrame
               key={widget.id}
               widget={widget}
               rect={rect}
+              collapsed={collapsed === true}
               focused={widget.id === focusedId}
               maximized={layout === "monocle" && widget.id === arrangement.placements[0]?.widget.id}
               pinned={pinnedIds.has(widget.id)}

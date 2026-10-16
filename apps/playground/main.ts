@@ -285,6 +285,9 @@ for (const button of layoutButtons) {
   });
 }
 
+// A collapsed frame shows only its title bar; style.css lays it out to this height.
+const COLLAPSED_HEIGHT = 44;
+
 function render(): void {
   const nmaster = workspaceSize.width < 640 ? 0 : 2;
   const bounds = {
@@ -308,6 +311,7 @@ function render(): void {
     focusedWidgetId: focusedId ?? undefined,
     nmaster,
     mfact,
+    collapsedHeight: COLLAPSED_HEIGHT,
   });
 
   currentPlacements = result.placements;

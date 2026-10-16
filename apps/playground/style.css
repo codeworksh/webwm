@@ -217,6 +217,19 @@ h1 {
   transition: none;
 }
 
+/* applyPlacements marks collapsed frames; they keep their content, folded away. */
+.widget[data-collapsed] {
+  display: flex;
+  align-items: center;
+  padding-block: 0;
+}
+.widget[data-collapsed] > :not(.widget-bar) {
+  display: none;
+}
+.widget[data-collapsed] > .widget-bar {
+  flex: 1;
+}
+
 .widget-bar {
   display: flex;
   align-items: center;
