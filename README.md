@@ -8,14 +8,14 @@ select which widgets are visible; Tile, Grid, and Monocle compute plain
 MIT licensed by Sanchit Kudari. The dwm attribution and upstream license are
 preserved in [NOTICES.md](NOTICES.md).
 
-Version `0.1.0` is distributed through [GitHub Releases](https://github.com/codeworksh/webwm/releases),
+Version `0.2.0` is distributed through [GitHub Releases](https://github.com/codeworksh/webwm/releases),
 not npm. Install the release package directly from GitHub:
 
 ```bash
-pnpm add https://github.com/codeworksh/webwm/releases/download/v0.1.0/webwm-0.1.0.tgz
+pnpm add https://github.com/codeworksh/webwm/releases/download/v0.2.0/webwm-0.2.0.tgz
 ```
 
-You can also download that asset first and run `pnpm add ./webwm-0.1.0.tgz`.
+You can also download that asset first and run `pnpm add ./webwm-0.2.0.tgz`.
 Use the release asset rather than the repository source archive: it includes
 the built `webwm`, `webwm/dom`, and `webwm/react` entry points.
 If you use `webwm/react`, install React in your app as well (`pnpm add react`);

@@ -1,6 +1,6 @@
 {
   "name": "webwm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser-native dwm-style dynamic tiling for web widgets, with optional DOM and React adapters.",
   "homepage": "https://github.com/codeworksh/webwm#readme",
   "bugs": {
