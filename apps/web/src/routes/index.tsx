@@ -14,6 +14,7 @@ import {
   toggleViewedTags,
   type Bounds,
   type InsertionTarget,
+  type Overflow,
   type Rect,
   type Widget,
   type WidgetId,
@@ -260,6 +261,49 @@ function WidgetFrame({
   );
 }
 
+/**
+ * The slot holding what a short column had no title bar for: "+N more", opening a list of them.
+ * Picking one focuses it, which opens it on the next arrangement.
+ */
+function OverflowEntry({
+  entry,
+  onPick,
+}: {
+  readonly entry: Overflow;
+  readonly onPick: (id: WidgetId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { rect, widgets: hidden } = entry;
+  return (
+    <div
+      className="overflow-entry"
+      style={{ width: rect.w, height: rect.h, transform: `translate(${rect.x}px, ${rect.y}px)` }}
+    >
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        +{hidden.length} more
+      </button>
+      {open && (
+        <ul className="overflow-list" role="menu">
+          {hidden.map(({ id }) => (
+            <li key={id}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onPick(id);
+                }}
+              >
+                {widgetFiles[id]}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 interface DividerProps {
   readonly left: number;
   readonly height: number;
@@ -495,6 +539,9 @@ function WorkspacePage() {
               }}
               onDragCancel={() => setDragPreview(null)}
             />
+          ))}
+          {arrangement.overflow.map((entry) => (
+            <OverflowEntry key={entry.widgets[0]?.id} entry={entry} onPick={focusWidget} />
           ))}
           {dragPreview?.target && (
             <div

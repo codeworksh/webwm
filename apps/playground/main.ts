@@ -12,6 +12,7 @@ import {
   tagBit,
   tileInsertionTargetAtPoint,
   toggleViewedTags,
+  type Overflow,
   type Placement,
   type Widget,
   type WidgetId,
@@ -330,7 +331,9 @@ function render(): void {
   masterDivider.hidden = !showDivider;
   masterDivider.style.left = `${Math.floor(result.contentBounds.w * mfact) - 6}px`;
   masterDivider.setAttribute("aria-valuenow", mfact.toFixed(2));
+  // Widgets in an overflow get no placement, so applyPlacements hides them; they stay in the DOM.
   applyPlacements(result.placements, elements);
+  renderOverflow(result.overflow);
 
   activeMask.textContent = activeTags.toString(2).padStart(3, "0");
 
@@ -357,6 +360,37 @@ function render(): void {
       "aria-label",
       maximized ? `Restore ${widgetId}` : `Maximize ${widgetId}`,
     );
+  }
+}
+
+/** One "+N more" entry per overflowing column; picking a widget focuses it, which opens it. */
+function renderOverflow(entries: readonly Overflow[]): void {
+  for (const stale of layoutSurface.querySelectorAll(".overflow-entry")) stale.remove();
+  for (const { widgets: hidden, rect } of entries) {
+    const entry = document.createElement("details");
+    entry.className = "overflow-entry";
+    entry.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
+    entry.style.width = `${rect.w}px`;
+    entry.style.height = `${rect.h}px`;
+    const summary = document.createElement("summary");
+    summary.textContent = `+${hidden.length} more`;
+    const list = document.createElement("ul");
+    for (const { id } of hidden) {
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.textContent = id;
+      pick.addEventListener("click", () => {
+        const result = focus(widgets, order, activeTags, id);
+        order = result.order;
+        focusedId = result.widget?.id ?? null;
+        render();
+      });
+      const item = document.createElement("li");
+      item.append(pick);
+      list.append(item);
+    }
+    entry.append(summary, list);
+    layoutSurface.append(entry);
   }
 }
 

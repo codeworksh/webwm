@@ -142,5 +142,20 @@ collapses whichever open widget was focused least recently. Keep a collapsed
 widget's content mounted and just hide it, so its state survives. `webwm/dom`
 marks collapsed elements with a `data-collapsed` attribute for styling, and
 `tileInsertionTargetAtPoint` reads the column top to bottom, so dragging onto a
-title bar works as expected. Without `collapsedHeight`, a short tile column
-scrolls as before.
+title bar works as expected.
+
+When a column is so short that even the title bars do not all fit, it keeps
+one widget open, shows the title bars of the most recently focused widgets
+that fit, and gathers the rest in `result.overflow`: one entry per column,
+with the `widgets` it holds (in tile order) and the `rect` of its slot at the
+column's bottom. Those widgets get no placement. Draw the slot as an entry such
+as "+3 more" that lists them, and focus a widget picked from it to open it.
+Keep their content mounted and hidden, like collapsed widgets. Without
+`collapsedHeight`, a short tile column scrolls as before, and `overflow` is
+always empty.
+
+```ts
+for (const { widgets: hidden, rect } of result.overflow) {
+  // Draw `rect` as "+{hidden.length} more"; picking one calls focus(...).
+}
+```

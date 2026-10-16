@@ -349,18 +349,40 @@ export interface MinimumAwareArrangement {
   readonly contentBounds: Bounds;
   /**
    * - `preferred`: the requested layout as is.
-   * - `preferred-collapse`: tile within the bounds, with some widgets collapsed (see `collapsedHeight`).
+   * - `preferred-collapse`: tile within the bounds, with some widgets collapsed (see `collapsedHeight`)
+   *   and, when even their title bars do not fit, the rest in `overflow`.
    * - `preferred-scroll`: the requested layout on a larger, scrollable surface.
    * - `stack`: a full-width vertical stack on a scrollable surface, the last resort.
    */
   readonly mode: "preferred" | "preferred-collapse" | "preferred-scroll" | "stack";
+  /** Per tile column, widgets left without a placement; only in `preferred-collapse`. */
+  readonly overflow: readonly Overflow[];
 }
 
 /**
- * Lays one tile column out within `height`, collapsing what does not fit. The most recently
- * focused widgets stay open, as many as can share the height left by the collapsed title bars
- * while each meets its minimum; open widgets keep their tile order at the top and collapsed ones
- * follow at the bottom, also in tile order. Null when not even one widget can stay open.
+ * Widgets a tile column had no room for, even as title bars, gathered behind one entry at the
+ * column's bottom. They get no placement; a consumer keeps them mounted but hidden and draws `rect`
+ * as an entry that lists them. Focusing one opens it on the next arrangement.
+ */
+export interface Overflow {
+  /** In tile order. */
+  readonly widgets: readonly Widget[];
+  /** The entry's slot: one title bar, `collapsedHeight` tall, at the bottom of the column. */
+  readonly rect: Rect;
+}
+
+interface CollapsedColumn {
+  readonly placements: Placement[];
+  readonly overflow: Overflow | null;
+}
+
+/**
+ * Lays one tile column out within `height`, collapsing what does not fit. Every widget keeps at
+ * least a title bar while that is possible: the most recently focused stay open, as many as fit
+ * beside the others' title bars, open ones in tile order at the top and title bars below. Only
+ * when one open widget and every title bar cannot fit together does the column fall back to one
+ * open widget, the most recently focused title bars that fit, and an overflow entry in the last
+ * slot for the rest. Null when not even that fits.
  */
 function collapseColumn(
   column: readonly Placement[],
@@ -368,41 +390,63 @@ function collapseColumn(
   height: number,
   collapsedHeight: number,
   recency: (widgetId: WidgetId) => number,
-): Placement[] | null {
+): CollapsedColumn | null {
   const count = column.length;
-  if (count === 0) return [];
+  if (count === 0) return { placements: [], overflow: null };
   const byRecency = [...column].sort((a, b) => recency(a.widget.id) - recency(b.widget.id));
 
-  for (let openCount = count; openCount >= 1; openCount--) {
-    const open = new Set(byRecency.slice(0, openCount).map(({ widget }) => widget.id));
-    const openHeight = height - (count - openCount) * collapsedHeight;
-    const needed = Math.max(
-      ...column
-        .filter(({ widget }) => open.has(widget.id))
-        .map(({ widget }) => minimumSize(widget, "minHeight")),
+  // Every title bar visible, as many open as fit; else one open and the overflow entry.
+  const attempts = [...Array(count).keys()].map((index) => ({
+    openCount: count - index,
+    overflow: false,
+  }));
+  for (const { openCount, overflow } of [...attempts, { openCount: 1, overflow: true }]) {
+    const opened = byRecency.slice(0, openCount);
+    const folded = count - openCount;
+    // Slots are divided like tile, so every open widget needs the largest minimum among them.
+    const needed = Math.max(...opened.map(({ widget }) => minimumSize(widget, "minHeight")));
+    const titleSlots = Math.floor((height - openCount * needed) / collapsedHeight);
+    if (overflow ? titleSlots < 1 : titleSlots < folded) continue;
+
+    // Every folded widget gets a title bar, or all but the last slot do and it holds the rest.
+    const overflowing = folded > titleSlots;
+    const titled = overflowing ? titleSlots - 1 : folded;
+    const open = new Set(opened.map(({ widget }) => widget.id));
+    const shown = new Set(
+      byRecency.slice(openCount, openCount + titled).map(({ widget }) => widget.id),
     );
-    // Slots are divided like tile: the smallest one is the floor of an equal share.
-    if (Math.floor(openHeight / openCount) < needed) continue;
+    const openHeight = height - (titled + (overflowing ? 1 : 0)) * collapsedHeight;
 
     let openY = 0;
-    let opened = 0;
+    let openPlaced = 0;
     let collapsedY = openHeight;
-    return column.map(({ widget, rect }) => {
+    const placements: Placement[] = [];
+    const hidden: Widget[] = [];
+    for (const { widget, rect } of column) {
       if (open.has(widget.id)) {
-        const h = Math.floor((openHeight - openY) / (openCount - opened));
-        const placed = { widget, rect: { x: rect.x, y: top + openY, w: rect.w, h } };
+        const h = Math.floor((openHeight - openY) / (openCount - openPlaced));
+        placements.push({ widget, rect: { x: rect.x, y: top + openY, w: rect.w, h } });
         openY += h;
-        opened++;
-        return placed;
+        openPlaced++;
+      } else if (shown.has(widget.id)) {
+        placements.push({
+          widget,
+          rect: { x: rect.x, y: top + collapsedY, w: rect.w, h: collapsedHeight },
+          collapsed: true,
+        });
+        collapsedY += collapsedHeight;
+      } else {
+        hidden.push(widget);
       }
-      const placed = {
-        widget,
-        rect: { x: rect.x, y: top + collapsedY, w: rect.w, h: collapsedHeight },
-        collapsed: true,
-      };
-      collapsedY += collapsedHeight;
-      return placed;
-    });
+    }
+    const x = column[0].rect.x;
+    const w = column[0].rect.w;
+    return {
+      placements,
+      overflow: overflowing
+        ? { widgets: hidden, rect: { x, y: top + collapsedY, w, h: collapsedHeight } }
+        : null,
+    };
   }
   return null;
 }
@@ -426,6 +470,7 @@ export function arrangeWithMinimums(
       placements: preferred,
       contentBounds: bounds,
       mode: "preferred",
+      overflow: [],
     };
   }
 
@@ -456,9 +501,10 @@ export function arrangeWithMinimums(
 
     if (masterColumn && stackColumn) {
       return {
-        placements: [...masterColumn, ...stackColumn],
+        placements: [...masterColumn.placements, ...stackColumn.placements],
         contentBounds: bounds,
         mode: "preferred-collapse",
+        overflow: [masterColumn.overflow, stackColumn.overflow].filter((entry) => entry !== null),
       };
     }
   }
@@ -482,6 +528,7 @@ export function arrangeWithMinimums(
         placements,
         contentBounds,
         mode: "preferred-scroll",
+        overflow: [],
       };
     }
   }
@@ -517,6 +564,7 @@ export function arrangeWithMinimums(
         placements,
         contentBounds,
         mode: "preferred-scroll",
+        overflow: [],
       };
     }
   }
@@ -533,6 +581,7 @@ export function arrangeWithMinimums(
       placements: arrange(widgets, order, contentBounds, options, layoutTable),
       contentBounds,
       mode: "preferred-scroll",
+      overflow: [],
     };
   }
 
@@ -565,6 +614,7 @@ export function arrangeWithMinimums(
     placements,
     contentBounds,
     mode: "stack",
+    overflow: [],
   };
 }
 

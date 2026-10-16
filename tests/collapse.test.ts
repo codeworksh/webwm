@@ -105,12 +105,53 @@ describe("collapsed stack", () => {
     expect(placementsSatisfyMinimumSizes(result.placements)).toBe(true);
   });
 
-  test("falls back to scrolling when not even one widget can stay open", () => {
+  test("gathers what no title bar fits behind one overflow entry", () => {
+    // 400px: one open stack widget (200) leaves 6 title slots for 8 folded, so 5 titles and the entry.
     const short = { ...bounds, h: 400 };
     const result = arrangeWithMinimums(widgets, ordered(), short, tile);
 
+    expect(result.mode).toBe("preferred-collapse");
+    expect(summary(result)).toEqual([
+      "a 0,0 700x400",
+      "b 700,0 700x220",
+      "c 700,220 700x30 collapsed",
+      "d 700,250 700x30 collapsed",
+      "e 700,280 700x30 collapsed",
+      "f 700,310 700x30 collapsed",
+      "g 700,340 700x30 collapsed",
+    ]);
+    expect(result.overflow).toEqual([
+      {
+        widgets: widgets.filter(({ id }) => ["h", "i", "j"].includes(id)),
+        rect: { x: 700, y: 370, w: 700, h: 30 },
+      },
+    ]);
+  });
+
+  test("keeps every title bar while one open widget and all of them fit", () => {
+    // 9 stack widgets: 200 + 8x30 = 440, so 440px still shows every title and no overflow.
+    const result = arrangeWithMinimums(widgets, ordered(), { ...bounds, h: 440 }, tile);
+
+    expect(result.overflow).toEqual([]);
+    expect(result.placements.filter(({ collapsed }) => collapsed)).toHaveLength(8);
+  });
+
+  test("focusing a widget in the overflow opens it", () => {
+    const short = { ...bounds, h: 400 };
+    const result = arrangeWithMinimums(widgets, focusWidget(ordered(), "j"), short, tile);
+    const open = result.placements
+      .filter(({ collapsed }) => !collapsed)
+      .map(({ widget }) => widget.id);
+
+    expect(open).toEqual(["a", "j"]);
+    expect(result.overflow[0]?.widgets.map(({ id }) => id)).not.toContain("j");
+  });
+
+  test("falls back to scrolling when not even one widget and the entry fit", () => {
+    const result = arrangeWithMinimums(widgets, ordered(), { ...bounds, h: 220 }, tile);
+
     expect(result.mode).toBe("preferred-scroll");
-    expect(result.placements.some(({ collapsed }) => collapsed)).toBe(false);
+    expect(result.overflow).toEqual([]);
   });
 
   test("leaves scrolling in place when collapsedHeight is not given", () => {

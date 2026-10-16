@@ -439,6 +439,42 @@ a:focus-visible,
   border: 3px solid #171b21;
   /* Geometry changes land together, so tiles never overlap mid-transition. */
 }
+.overflow-entry {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 13px;
+  background: #283440;
+  border: 3px solid #171b21;
+}
+.overflow-entry > button {
+  color: #aebfcd;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.overflow-list {
+  position: absolute;
+  right: 8px;
+  bottom: 100%;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #202833;
+  border: 1px solid #394451;
+  border-radius: 6px;
+}
+.overflow-list button {
+  width: 100%;
+  padding: 4px 10px;
+  color: #d9e1e8;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
 .widget.is-collapsed .widget-bar {
   border-bottom: 0;
   cursor: pointer;
